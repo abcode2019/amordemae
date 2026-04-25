@@ -203,4 +203,4 @@ const CATEGORIES = [
   { id: "utilidade", label: "Utilidades" },
 ];
 
-const WHATSAPP_NUMBER = "5511999999999"; // Substituir pelo número real
+const WHATSAPP_NUMBER = "5591980578751";

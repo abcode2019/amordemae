@@ -1,27 +1,39 @@
-// Admin Login Page
+// Admin Login Page — Supabase Auth
 const AdminLogin = ({ onLogin }) => {
+  const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [showPass, setShowPass] = React.useState(false);
 
-  // Mock admin credential — em produção substituir por autenticação real (Supabase Auth)
-  const ADMIN_PASSWORD = "amordemae@admin";
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    // Simula delay de autenticação
-    setTimeout(() => {
-      if (password === ADMIN_PASSWORD) {
-        sessionStorage.setItem("amordemae_admin", "true");
-        onLogin();
-      } else {
-        setError("Senha incorreta. Tente novamente.");
+
+    try {
+      const { data, error: authError } = await db.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (authError) {
+        const messages = {
+          "Invalid login credentials": "E-mail ou senha incorretos.",
+          "Email not confirmed": "E-mail não confirmado. Verifique sua caixa de entrada.",
+        };
+        setError(messages[authError.message] || authError.message);
         setLoading(false);
+        return;
       }
-    }, 800);
+
+      if (data?.session) {
+        onLogin();
+      }
+    } catch (err) {
+      setError("Erro ao conectar. Tente novamente.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,9 +56,32 @@ const AdminLogin = ({ onLogin }) => {
           boxShadow: "0 12px 48px rgba(210,155,155,0.15)",
           border: "1px solid #f0e8e8",
         }}>
+          {/* E-mail */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 8 }}>
+              E-mail
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(""); }}
+              placeholder="admin@amordemae.com"
+              autoFocus
+              style={{
+                width: "100%", padding: "14px 16px",
+                borderRadius: 14, fontSize: 15, fontFamily: "Nunito, sans-serif",
+                border: error ? "2px solid #C2877E" : "2px solid #f0e8e8",
+                outline: "none", boxSizing: "border-box",
+                background: "#fdf9f9", color: "#3D2B2B",
+                transition: "border 0.2s",
+              }}
+            />
+          </div>
+
+          {/* Senha */}
           <div style={{ marginBottom: 24 }}>
             <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 8 }}>
-              Senha de administrador
+              Senha
             </label>
             <div style={{ position: "relative" }}>
               <input
@@ -54,7 +89,6 @@ const AdminLogin = ({ onLogin }) => {
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError(""); }}
                 placeholder="Digite a senha…"
-                autoFocus
                 style={{
                   width: "100%", padding: "14px 48px 14px 16px",
                   borderRadius: 14, fontSize: 15, fontFamily: "Nunito, sans-serif",
@@ -78,16 +112,16 @@ const AdminLogin = ({ onLogin }) => {
             )}
           </div>
 
-          <button type="submit" disabled={loading || !password} style={{
+          <button type="submit" disabled={loading || !email || !password} style={{
             width: "100%", padding: "15px",
             borderRadius: 14, border: "none",
-            background: loading || !password
+            background: loading || !email || !password
               ? "#e8dada"
               : "linear-gradient(135deg, #D29B9B, #C2877E)",
-            color: loading || !password ? "#B89090" : "#fff",
-            fontSize: 16, fontWeight: 700, cursor: loading || !password ? "not-allowed" : "pointer",
+            color: loading || !email || !password ? "#B89090" : "#fff",
+            fontSize: 16, fontWeight: 700, cursor: loading || !email || !password ? "not-allowed" : "pointer",
             fontFamily: "Nunito, sans-serif",
-            boxShadow: loading || !password ? "none" : "0 6px 20px rgba(194,135,126,0.4)",
+            boxShadow: loading || !email || !password ? "none" : "0 6px 20px rgba(194,135,126,0.4)",
             transition: "all 0.2s",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
@@ -100,8 +134,7 @@ const AdminLogin = ({ onLogin }) => {
           </button>
 
           <p style={{ fontSize: 12, color: "#B89090", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
-            🔒 Acesso restrito a administradores.<br />
-            Em produção, será integrado com Supabase Auth.
+            🔒 Acesso restrito a administradores.
           </p>
         </form>
 

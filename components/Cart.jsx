@@ -26,24 +26,24 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { data: order } = await db.from('orders').insert({
-        customer_name: custName.trim(),
-        customer_phone: custPhone.trim() || null,
+      const { data: order } = await db.from('pedidos').insert({
+        nome_cliente: custName.trim(),
+        telefone_cliente: custPhone.trim() || null,
         total,
-        status: 'pending',
+        status: 'pendente',
       }).select('id').single();
       if (order?.id) {
-        await db.from('order_items').insert(cart.map(item => ({
-          order_id: order.id,
-          product_id: item.product.id,
-          product_name: item.product.name,
-          unit_price: item.product.price,
-          qty: item.qty,
-          size: item.personalization.size || null,
-          color: item.personalization.color || null,
-          custom_name: item.personalization.name || null,
-          custom_date: item.personalization.date || null,
-          custom_message: item.personalization.message || null,
+        await db.from('itens_pedido').insert(cart.map(item => ({
+          pedido_id: order.id,
+          produto_id: item.product.id,
+          nome_produto: item.product.name,
+          preco_unitario: item.product.price,
+          quantidade: item.qty,
+          tamanho: item.personalization.size || null,
+          cor: item.personalization.color || null,
+          personalizacao_nome: item.personalization.name || null,
+          personalizacao_data: item.personalization.date || null,
+          personalizacao_msg: item.personalization.message || null,
         })));
       }
     } catch (_) {}
@@ -96,7 +96,7 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
               }}>
                 {/* Thumb */}
                 <div style={{ width: 90, height: 90, borderRadius: 14, overflow: "hidden", flexShrink: 0 }}>
-                  <ProductImage productId={item.product.id} size="thumb" />
+                  <ProductImage productId={item.product.id} src={item.product.images?.[0]} size="thumb" />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>

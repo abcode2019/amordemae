@@ -6,15 +6,16 @@ const EMPTY_PRODUCT = {
   colors: "", badge: "", tags: "",
   rating: "5.0", reviews: "0", featured: false, inStock: true,
   personalizationFields: ["name", "date", "message"],
+  images: [],
 };
 
 const STATUS_MAP = {
-  pending:    { label: "Pendente",     color: "#C2877E", bg: "#fdf0f0" },
-  confirmed:  { label: "Confirmado",   color: "#759B96", bg: "#f0f5f4" },
-  production: { label: "Em Produção",  color: "#8B6B4A", bg: "#f8f5f0" },
-  shipped:    { label: "Enviado",      color: "#4A6A9B", bg: "#f0f4f9" },
-  delivered:  { label: "Entregue",     color: "#4A9B6A", bg: "#f0f9f4" },
-  cancelled:  { label: "Cancelado",    color: "#9B4A4A", bg: "#f9f0f0" },
+  pendente:    { label: "Pendente",     color: "#C2877E", bg: "#fdf0f0" },
+  confirmado:  { label: "Confirmado",   color: "#759B96", bg: "#f0f5f4" },
+  producao: { label: "Em Produção",  color: "#8B6B4A", bg: "#f8f5f0" },
+  enviado:    { label: "Enviado",      color: "#4A6A9B", bg: "#f0f4f9" },
+  entregue:  { label: "Entregue",     color: "#4A9B6A", bg: "#f0f9f4" },
+  cancelado:  { label: "Cancelado",    color: "#9B4A4A", bg: "#f9f0f0" },
 };
 
 const OrdersView = ({ onLogout, setPage, onBack }) => {
@@ -24,9 +25,9 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
 
   const load = () => {
     setLoading(true);
-    db.from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false })
+    db.from('pedidos')
+      .select('*, itens_pedido(*)')
+      .order('criado_em', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) setOrders(data);
         setLoading(false);
@@ -36,7 +37,7 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
   React.useEffect(() => { load(); }, []);
 
   const updateStatus = async (orderId, status) => {
-    await db.from('orders').update({ status }).eq('id', orderId);
+    await db.from('pedidos').update({ status }).eq('id', orderId);
     setOrders(os => os.map(o => o.id === orderId ? { ...o, status } : o));
   };
 
@@ -70,7 +71,7 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
             <p style={{ color: "#9B7B7B", fontSize: 16 }}>Nenhum pedido ainda</p>
           </div>
         ) : orders.map(order => {
-          const st = STATUS_MAP[order.status] || STATUS_MAP.pending;
+          const st = STATUS_MAP[order.status] || STATUS_MAP.pendente;
           const isOpen = expanded === order.id;
           return (
             <div key={order.id} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, boxShadow: "0 2px 12px rgba(210,155,155,0.08)", overflow: "hidden" }}>
@@ -80,12 +81,12 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
                 style={{ padding: "16px 20px", cursor: "pointer", display: "grid", gridTemplateColumns: "1fr 1fr 110px 130px 36px", gap: 12, alignItems: "center" }}
               >
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{order.customer_name || "—"}</div>
-                  <div style={{ fontSize: 12, color: "#9B7B7B" }}>{order.customer_phone || "sem telefone"}</div>
-                  <div style={{ fontSize: 11, color: "#B89090", marginTop: 2 }}>{fmtDate(order.created_at)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{order.nome_cliente || "—"}</div>
+                  <div style={{ fontSize: 12, color: "#9B7B7B" }}>{order.telefone_cliente || "sem telefone"}</div>
+                  <div style={{ fontSize: 11, color: "#B89090", marginTop: 2 }}>{fmtDate(order.criado_em)}</div>
                 </div>
                 <div style={{ fontSize: 13, color: "#7A5A5A" }}>
-                  {(order.order_items || []).length} {(order.order_items || []).length === 1 ? "item" : "itens"}
+                  {(order.itens_pedido || []).length} {(order.itens_pedido || []).length === 1 ? "item" : "itens"}
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
                   R$ {fmt(order.total)}
@@ -110,33 +111,33 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
               {/* Items expandido */}
               {isOpen && (
                 <div style={{ borderTop: "1px solid #f0e8e8", padding: "16px 20px", background: "#fdf9f9" }}>
-                  {(order.order_items || []).length === 0 ? (
+                  {(order.itens_pedido || []).length === 0 ? (
                     <p style={{ color: "#9B7B7B", fontSize: 13, margin: 0 }}>Sem itens registrados</p>
-                  ) : (order.order_items || []).map(item => (
+                  ) : (order.itens_pedido || []).map(item => (
                     <div key={item.id} style={{
                       display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr",
                       gap: 12, padding: "10px 0",
                       borderBottom: "1px solid #f5eded", alignItems: "start",
                     }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B" }}>{item.product_name}</div>
-                        {item.custom_name && <div style={{ fontSize: 11, color: "#9B7B7B" }}>✏️ {item.custom_name}</div>}
-                        {item.custom_date && <div style={{ fontSize: 11, color: "#9B7B7B" }}>📅 {item.custom_date}</div>}
-                        {item.custom_message && <div style={{ fontSize: 11, color: "#9B7B7B" }}>💬 {item.custom_message}</div>}
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B" }}>{item.nome_produto}</div>
+                        {item.personalizacao_nome && <div style={{ fontSize: 11, color: "#9B7B7B" }}>✏️ {item.personalizacao_nome}</div>}
+                        {item.personalizacao_data && <div style={{ fontSize: 11, color: "#9B7B7B" }}>📅 {item.personalizacao_data}</div>}
+                        {item.personalizacao_msg && <div style={{ fontSize: 11, color: "#9B7B7B" }}>💬 {item.personalizacao_msg}</div>}
                       </div>
                       <div style={{ fontSize: 12, color: "#7A5A5A" }}>
-                        {item.size && <div>{item.size}</div>}
-                        {item.color && <div>{item.color}</div>}
+                        {item.tamanho && <div>{item.tamanho}</div>}
+                        {item.cor && <div>{item.cor}</div>}
                       </div>
-                      <div style={{ fontSize: 13, color: "#9B7B7B" }}>× {item.qty}</div>
+                      <div style={{ fontSize: 13, color: "#9B7B7B" }}>× {item.quantidade}</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#C2877E", textAlign: "right" }}>
-                        R$ {fmt(item.unit_price * item.qty)}
+                        R$ {fmt(item.preco_unitario * item.quantidade)}
                       </div>
                     </div>
                   ))}
-                  {order.notes && (
+                  {order.observacoes && (
                     <div style={{ marginTop: 12, padding: 12, background: "#fff8f0", borderRadius: 10, fontSize: 13, color: "#8B6B4A" }}>
-                      💬 {order.notes}
+                      💬 {order.observacoes}
                     </div>
                   )}
                 </div>
@@ -157,6 +158,10 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
   const [search, setSearch] = React.useState("");
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [saved, setSaved] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
+  const [newFiles, setNewFiles] = React.useState([]); // File objects to upload
+  const [previewUrls, setPreviewUrls] = React.useState([]); // preview URLs for new files
+  const fileInputRef = React.useRef(null);
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -167,6 +172,8 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
     setForm(EMPTY_PRODUCT);
     setErrors({});
     setSaved(false);
+    setNewFiles([]);
+    setPreviewUrls([]);
     setView("new");
   };
 
@@ -196,9 +203,12 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
       featured: product.featured,
       inStock: product.inStock,
       personalizationFields: product.personalizationFields,
+      images: (product.images || []).filter(img => typeof img === 'string' && img.startsWith('http')),
     });
     setErrors({});
     setSaved(false);
+    setNewFiles([]);
+    setPreviewUrls([]);
     setView("edit");
   };
 
@@ -241,25 +251,92 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
       featured: form.featured,
       inStock: form.inStock,
       personalizationFields: form.personalizationFields,
-      images: [1, 2, 3],
+      images: [1, 2, 3], // placeholder — será substituído pelos URLs reais
     };
   };
 
-  const handleSave = () => {
-    const e = validate();
-    if (Object.keys(e).length) { setErrors(e); return; }
-    if (view === "new") {
-      const id = Date.now();
-      onAddProduct(buildProduct(id));
-    } else {
-      onEditProduct(buildProduct(editingProduct.id));
+  // Upload de imagens para Supabase Storage
+  const uploadImages = async () => {
+    if (newFiles.length === 0) return form.images || [];
+
+    setUploading(true);
+    const uploadedUrls = [...(form.images || [])];
+
+    for (const file of newFiles) {
+      const ext = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const path = `imagens/${fileName}`;
+
+      const { error } = await db.storage.from('produtos').upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+      if (!error) {
+        const { data: urlData } = db.storage.from('produtos').getPublicUrl(path);
+        if (urlData?.publicUrl) {
+          uploadedUrls.push(urlData.publicUrl);
+        }
+      } else {
+        console.error('Erro ao fazer upload:', error);
+      }
     }
-    setSaved(true);
-    setTimeout(() => { setView("list"); setSaved(false); }, 1200);
+
+    setUploading(false);
+    return uploadedUrls;
   };
 
-  const handleDelete = (id) => {
-    onDeleteProduct(id);
+  // Remover imagem existente
+  const removeExistingImage = (idx) => {
+    setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
+  };
+
+  // Adicionar novos arquivos
+  const handleFileSelect = (files) => {
+    const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (validFiles.length === 0) return;
+    setNewFiles(prev => [...prev, ...validFiles]);
+    // Criar previews
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrls(prev => [...prev, e.target.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeNewFile = (idx) => {
+    setNewFiles(prev => prev.filter((_, i) => i !== idx));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = async () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    setSaved(false);
+    try {
+      // Primeiro faz upload das imagens novas
+      const allImages = await uploadImages();
+      const product = buildProduct(view === "new" ? 0 : editingProduct.id);
+      product.images = allImages;
+
+      if (view === "new") {
+        await onAddProduct(product);
+      } else {
+        await onEditProduct(product);
+      }
+      setSaved(true);
+      setNewFiles([]);
+      setPreviewUrls([]);
+      setTimeout(() => { setView("list"); setSaved(false); }, 1200);
+    } catch (err) {
+      console.error('Erro ao salvar:', err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    await onDeleteProduct(id);
     setDeleteConfirm(null);
   };
 
@@ -310,6 +387,7 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
     { value: "luminaria", label: "Luminárias" },
     { value: "miniatura", label: "Miniaturas" },
     { value: "utilidade", label: "Utilidades" },
+    { value: "religioso", label: "Artigo Religioso" },
   ];
 
   // --- ORDERS VIEW ---
@@ -385,6 +463,86 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
                     value={form.description} onChange={e => { setForm(f => ({ ...f, description: e.target.value })); setErrors(er => ({ ...er, description: "" })); }} />
                   {errors.description && <span style={{ fontSize: 12, color: "#C2877E", marginTop: 4, display: "block" }}>{errors.description}</span>}
                 </div>
+              </div>
+
+              {/* Imagens do Produto */}
+              <div style={{ background: "#fff", borderRadius: 20, padding: 28, marginBottom: 20, boxShadow: "0 2px 12px rgba(210,155,155,0.08)" }}>
+                {sectionTitle("Fotos do Produto", "Adicione fotos reais do produto (recomendado: 3 a 5 fotos)")}
+
+                {/* Imagens existentes */}
+                {(form.images?.length > 0 || previewUrls.length > 0) && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12, marginBottom: 16 }}>
+                    {/* URLs já salvas */}
+                    {(form.images || []).map((url, idx) => (
+                      <div key={`existing-${idx}`} style={{ position: "relative", aspectRatio: "1", borderRadius: 14, overflow: "hidden", border: idx === 0 ? "3px solid #D29B9B" : "2px solid #f0e8e8" }}>
+                        <img src={url} alt={`Foto ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        {idx === 0 && (
+                          <div style={{ position: "absolute", bottom: 6, left: 6, background: "#D29B9B", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 6 }}>CAPA</div>
+                        )}
+                        <button
+                          onClick={() => removeExistingImage(idx)}
+                          style={{
+                            position: "absolute", top: 6, right: 6,
+                            width: 24, height: 24, borderRadius: "50%",
+                            background: "rgba(0,0,0,0.6)", border: "none",
+                            color: "#fff", fontSize: 14, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+
+                    {/* Previews dos novos arquivos */}
+                    {previewUrls.map((url, idx) => (
+                      <div key={`new-${idx}`} style={{ position: "relative", aspectRatio: "1", borderRadius: 14, overflow: "hidden", border: "2px dashed #D29B9B" }}>
+                        <img src={url} alt={`Nova foto ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.85 }} />
+                        <div style={{ position: "absolute", bottom: 6, left: 6, background: "#759B96", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 6 }}>NOVA</div>
+                        <button
+                          onClick={() => removeNewFile(idx)}
+                          style={{
+                            position: "absolute", top: 6, right: 6,
+                            width: 24, height: 24, borderRadius: "50%",
+                            background: "rgba(0,0,0,0.6)", border: "none",
+                            color: "#fff", fontSize: 14, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Drop zone / Botão de upload */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#D29B9B'; e.currentTarget.style.background = '#fdf8f8'; }}
+                  onDragLeave={(e) => { e.currentTarget.style.borderColor = '#f0e8e8'; e.currentTarget.style.background = '#fafafa'; }}
+                  onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#f0e8e8'; e.currentTarget.style.background = '#fafafa'; handleFileSelect(e.dataTransfer.files); }}
+                  style={{
+                    border: "2px dashed #f0e8e8", borderRadius: 16,
+                    padding: "32px 24px", textAlign: "center",
+                    cursor: "pointer", background: "#fafafa",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B", marginBottom: 4 }}>Clique ou arraste fotos aqui</div>
+                  <div style={{ fontSize: 12, color: "#9B7B7B" }}>JPG, PNG ou WebP • Máx. 5MB por foto</div>
+                  {uploading && (
+                    <div style={{ marginTop: 12, fontSize: 13, color: "#D29B9B", fontWeight: 700 }}>
+                      ⏳ Fazendo upload...
+                    </div>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
+                />
               </div>
 
               {/* Tamanhos e Preços */}
@@ -692,7 +850,7 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
               {/* Name */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
-                  <ProductImage productId={p.id} size="thumb" />
+                  <ProductImage productId={p.id} src={p.images?.[0]} size="thumb" />
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{p.name}</div>

@@ -30,7 +30,7 @@ const ProductCard = ({ product, favorites, toggleFavorite, addToCart, setPage, s
       {/* Image */}
       <div style={{ position: "relative", aspectRatio: "4/3", overflow: "hidden" }} onClick={handleViewDetail}>
         <div style={{ width: "100%", height: "100%", borderRadius: 0 }}>
-          <ProductImage productId={product.id} size="full" />
+          <ProductImage productId={product.id} src={product.images?.[0]} size="full" />
         </div>
         {product.badge && (
           <div style={{

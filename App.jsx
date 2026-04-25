@@ -7,6 +7,8 @@ const App = () => {
     if (pathname.startsWith("/produto/")) return { page: "product", productId: pathname.slice(9) };
     if (pathname === "/carrinho") return { page: "cart" };
     if (pathname === "/favoritos") return { page: "favorites" };
+    if (pathname === "/admin/login") return { page: "landing", admin: "login" };
+    if (pathname === "/admin") return { page: "landing", admin: "panel" };
     return { page: "landing" };
   };
 
@@ -24,12 +26,24 @@ const App = () => {
   const [page, setPageState] = React.useState(initialRoute.page);
   const [selectedProduct, setSelectedProduct] = React.useState(null);
 
-  // Admin auth
-  const [isAdmin, setIsAdmin] = React.useState(() => sessionStorage.getItem("amordemae_admin") === "true");
-  const [adminPage, setAdminPage] = React.useState(null); // null | "login" | "panel"
+  // Admin auth — Supabase Auth
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [adminPage, setAdminPageState] = React.useState(initialRoute.admin || null);
 
-  // Products — inicia com mock, substitui pelo Supabase no mount
-  const [products, setProducts] = React.useState(MOCK_PRODUCTS);
+  // Wrapper para setAdminPage que também atualiza a URL
+  const setAdminPage = (ap) => {
+    setAdminPageState(ap);
+    if (ap === "panel") {
+      window.history.pushState({}, "", "/admin");
+    } else if (ap === "login") {
+      window.history.pushState({}, "", "/admin/login");
+    }
+    // se ap === null, a URL será atualizada pelo sync de página
+  };
+
+  // Products — inicia vazio, carrega do Supabase no mount
+  const [products, setProducts] = React.useState([]);
+  const [loadingProducts, setLoadingProducts] = React.useState(true);
 
   // Cart state — persisted to localStorage
   const [cart, setCart] = React.useState(() => {
@@ -44,32 +58,84 @@ const App = () => {
   // Toast system
   const [toasts, setToasts] = React.useState([]);
 
-  // Carrega produtos do Supabase
+  // Helper: converte row do Supabase (PT) → objeto do frontend
+  const rowToProduct = (row) => ({
+    id: row.id,
+    name: row.nome,
+    price: Number(row.preco),
+    originalPrice: row.preco_original != null ? Number(row.preco_original) : null,
+    category: row.categoria,
+    description: row.descricao || '',
+    shortDescription: row.descricao_curta || '',
+    sizes: row.tamanhos || [],
+    colors: row.cores || [],
+    images: row.imagens || [],
+    badge: row.badge,
+    rating: Number(row.avaliacao || 0),
+    reviews: row.num_avaliacoes || 0,
+    tags: row.tags || [],
+    personalizationFields: row.campos_personalizacao || [],
+    sizePrices: (row.precos_por_tamanho || []).map(sp => ({
+      size: sp.tamanho || sp.size,
+      price: Number(sp.preco || sp.price || 0),
+      originalPrice: sp.preco_original != null ? Number(sp.preco_original) : (sp.originalPrice != null ? Number(sp.originalPrice) : null),
+    })),
+    featured: row.destaque,
+    inStock: row.em_estoque,
+  });
+
+  // Helper: converte produto do frontend → row do Supabase (PT)
+  const productToRow = (product) => ({
+    nome: product.name,
+    preco: product.price,
+    preco_original: product.originalPrice,
+    categoria: product.category,
+    descricao: product.description,
+    descricao_curta: product.shortDescription,
+    tamanhos: product.sizes || [],
+    cores: product.colors || [],
+    imagens: (product.images || []).filter(img => typeof img === 'string'),
+    badge: product.badge || null,
+    avaliacao: product.rating || 0,
+    num_avaliacoes: product.reviews || 0,
+    tags: product.tags || [],
+    campos_personalizacao: product.personalizationFields || [],
+    precos_por_tamanho: (product.sizePrices || []).map(sp => ({
+      tamanho: sp.size || sp.tamanho,
+      preco: sp.price || sp.preco,
+      preco_original: sp.originalPrice || sp.preco_original || null,
+    })),
+    destaque: product.featured || false,
+    em_estoque: product.inStock !== false,
+  });
+
+  // Carrega/recarrega produtos do Supabase
+  const reloadProducts = () => {
+    setLoadingProducts(true);
+    db.from('produtos').select('*').order('id').then(({ data, error }) => {
+      if (error) {
+        console.error('Erro ao carregar produtos:', error);
+      }
+      setProducts(!error && data ? data.map(rowToProduct) : []);
+      setLoadingProducts(false);
+    });
+  };
+
+  // Carrega produtos no mount
+  React.useEffect(() => { reloadProducts(); }, []);
+
+  // Verifica sessão admin no mount + escuta mudanças de auth
   React.useEffect(() => {
-    db.from('products').select('*').order('id').then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        setProducts(data.map(row => ({
-          id: row.id,
-          name: row.name,
-          price: Number(row.price),
-          originalPrice: row.original_price != null ? Number(row.original_price) : null,
-          category: row.category,
-          description: row.description,
-          shortDescription: row.short_description,
-          sizes: row.sizes || [],
-          colors: row.colors || [],
-          images: row.images || [],
-          badge: row.badge,
-          rating: Number(row.rating),
-          reviews: row.reviews,
-          tags: row.tags || [],
-          personalizationFields: row.personalization_fields || [],
-          sizePrices: row.size_prices || [],
-          featured: row.featured,
-          inStock: row.in_stock,
-        })));
+    db.auth.getSession().then(({ data: { session } }) => {
+      setIsAdmin(!!session);
+    });
+    const { data: { subscription } } = db.auth.onAuthStateChange((_event, session) => {
+      setIsAdmin(!!session);
+      if (!session) {
+        setAdminPage(null);
       }
     });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Persist cart
@@ -108,11 +174,16 @@ const App = () => {
   React.useEffect(() => {
     const handler = () => {
       const route = pathToRoute(window.location.pathname);
-      setPageState(route.page);
-      if (route.page === "product" && route.productId) {
-        const found = products.find(p => String(p.id) === String(route.productId));
-        if (found) setSelectedProduct(found);
-        else setPageState("catalog");
+      if (route.admin) {
+        setAdminPageState(route.admin);
+      } else {
+        setAdminPageState(null);
+        setPageState(route.page);
+        if (route.page === "product" && route.productId) {
+          const found = products.find(p => String(p.id) === String(route.productId));
+          if (found) setSelectedProduct(found);
+          else setPageState("catalog");
+        }
       }
     };
     window.addEventListener("popstate", handler);
@@ -122,8 +193,10 @@ const App = () => {
   // Listen for goto events (from AdminLogin back button)
   React.useEffect(() => {
     const handler = (e) => {
-      setAdminPage(null);
-      setPageState(e.detail || "landing");
+      setAdminPageState(null);
+      const target = e.detail || "landing";
+      setPageState(target);
+      window.history.pushState({}, "", pageToPath(target));
     };
     window.addEventListener("amordemae:goto", handler);
     return () => window.removeEventListener("amordemae:goto", handler);
@@ -185,18 +258,38 @@ const App = () => {
     });
   };
 
-  // Admin product actions
-  const handleAddProduct = (product) => {
-    setProducts(ps => [...ps, product]);
+  // Admin product actions — persistidos no Supabase
+  const handleAddProduct = async (product) => {
+    const row = productToRow(product);
+    const { data, error } = await db.from('produtos').insert(row).select().single();
+    if (error) {
+      console.error('Erro ao salvar produto:', error);
+      showToast("Erro ao salvar produto: " + error.message, "error", "❌");
+      return;
+    }
+    setProducts(ps => [...ps, rowToProduct(data)]);
     showToast("Produto publicado com sucesso!", "success", "✨");
   };
 
-  const handleEditProduct = (updated) => {
+  const handleEditProduct = async (updated) => {
+    const row = productToRow(updated);
+    const { error } = await db.from('produtos').update(row).eq('id', updated.id);
+    if (error) {
+      console.error('Erro ao atualizar produto:', error);
+      showToast("Erro ao atualizar produto: " + error.message, "error", "❌");
+      return;
+    }
     setProducts(ps => ps.map(p => p.id === updated.id ? updated : p));
     showToast("Produto atualizado!", "success", "💾");
   };
 
-  const handleDeleteProduct = (id) => {
+  const handleDeleteProduct = async (id) => {
+    const { error } = await db.from('produtos').delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao excluir produto:', error);
+      showToast("Erro ao excluir produto: " + error.message, "error", "❌");
+      return;
+    }
     setProducts(ps => ps.filter(p => p.id !== id));
     showToast("Produto removido.", "info", "🗑️");
   };
@@ -207,17 +300,19 @@ const App = () => {
     showToast("Bem-vinda ao painel admin! 🔐", "success", "✅");
   };
 
-  const handleAdminLogout = () => {
-    sessionStorage.removeItem("amordemae_admin");
+  const handleAdminLogout = async () => {
+    await db.auth.signOut();
     setIsAdmin(false);
-    setAdminPage(null);
+    setAdminPageState(null);
+    window.history.pushState({}, "", "/");
+    setPageState("landing");
     showToast("Sessão encerrada.", "info", "👋");
   };
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const favCount = favorites.length;
 
-  const navigateTo = (p) => { setAdminPage(null); setPageState(p); };
+  const navigateTo = (p) => { setAdminPageState(null); setPageState(p); };
 
   const sharedProps = {
     favorites, toggleFavorite, addToCart,

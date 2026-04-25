@@ -1,35 +1,45 @@
 // Product Detail Page
 const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage, showToast }) => {
-  const [selectedSize, setSelectedSize] = React.useState(product.sizes[0]);
-  const [selectedColor, setSelectedColor] = React.useState(product.colors[0]);
+  const [selectedSize, setSelectedSize] = React.useState(product.sizes?.[0] || '');
+  const [selectedColor, setSelectedColor] = React.useState(product.colors?.[0] || '');
   const [activeImage, setActiveImage] = React.useState(0);
 
   const getSizePrice = (sizeName) => {
     const sp = (product.sizePrices || []).find(s => s.size === sizeName);
     return sp ? { price: sp.price, originalPrice: sp.originalPrice } : { price: product.price, originalPrice: product.originalPrice };
   };
-  const [sizePrice, setSizePrice] = React.useState(getSizePrice(product.sizes[0]));
+  const [sizePrice, setSizePrice] = React.useState(getSizePrice(product.sizes?.[0]));
 
   const handleSizeSelect = (size) => {
     setSelectedSize(size);
     setSizePrice(getSizePrice(size));
   };
-  const [showModal, setShowModal] = React.useState(false);
   const [qty, setQty] = React.useState(1);
   const isFav = favorites.includes(product.id);
 
-  const handleWhatsApp = () => {
+  // WhatsApp popup state
+  const [showWhatsAppModal, setShowWhatsAppModal] = React.useState(false);
+  const [wpName, setWpName] = React.useState('');
+  const [wpPhone, setWpPhone] = React.useState('');
+
+  const unitPrice = sizePrice.price;
+  const totalPrice = unitPrice * qty;
+
+  const handleWhatsAppSend = () => {
+    if (!wpName.trim()) return;
     const msg = encodeURIComponent(
-      `Olá! Tenho interesse no produto:\n\n*${product.name}*\nTamanho: ${selectedSize}\nCor: ${selectedColor}\nQuantidade: ${qty}\nPreço unitário: R$ ${product.price.toFixed(2).replace(".", ",")}\nTotal: R$ ${(product.price * qty).toFixed(2).replace(".", ",")}\n\nPode me ajudar a finalizar?`
+      `Olá! Meu nome é *${wpName.trim()}*${wpPhone.trim() ? `\nTelefone: ${wpPhone.trim()}` : ''}\n\nTenho interesse no produto:\n\n*${product.name}*${selectedSize ? `\nTamanho: ${selectedSize}` : ''}${selectedColor ? `\nCor: ${selectedColor}` : ''}\nQuantidade: ${qty}\nPreço unitário: R$ ${unitPrice.toFixed(2).replace(".", ",")}\n*Total: R$ ${totalPrice.toFixed(2).replace(".", ",")}*\n\nPode me ajudar a finalizar?`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
+    setShowWhatsAppModal(false);
+    setWpName('');
+    setWpPhone('');
   };
 
-  const handleConfirmPersonalization = (personalization) => {
+  const handleAddToCart = () => {
     for (let i = 0; i < qty; i++) {
-      addToCart(product, { ...personalization, size: selectedSize, color: selectedColor });
+      addToCart({ ...product, price: unitPrice }, { size: selectedSize, color: selectedColor });
     }
-    setShowModal(false);
   };
 
   const btnBase = {
@@ -38,14 +48,115 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
   };
 
+  const modalOverlay = {
+    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 9999, padding: 24,
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#fdf9f9", paddingTop: 68 }}>
-      {showModal && (
-        <PersonalizationModal
-          product={product}
-          onClose={() => setShowModal(false)}
-          onConfirm={handleConfirmPersonalization}
-        />
+
+      {/* WhatsApp Modal — Nome e Telefone */}
+      {showWhatsAppModal && (
+        <div style={modalOverlay} onClick={() => setShowWhatsAppModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#fff", borderRadius: 24, padding: 32, maxWidth: 420, width: "100%",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.2)", animation: "fadeIn 0.2s ease",
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>💬</div>
+              <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 22, color: "#3D2B2B", margin: "0 0 6px" }}>
+                Comprar via WhatsApp
+              </h2>
+              <p style={{ color: "#9B7B7B", fontSize: 13, margin: 0 }}>
+                Preencha seus dados para enviarmos a mensagem
+              </p>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 6 }}>
+                Seu Nome *
+              </label>
+              <input
+                value={wpName}
+                onChange={e => setWpName(e.target.value)}
+                placeholder="Digite seu nome"
+                style={{
+                  width: "100%", padding: "12px 16px", borderRadius: 12, fontSize: 14,
+                  border: "2px solid #f0e8e8", outline: "none", fontFamily: "Nunito, sans-serif",
+                  boxSizing: "border-box", transition: "border-color 0.2s",
+                }}
+                onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 6 }}>
+                Telefone <span style={{ fontWeight: 400, color: "#9B7B7B" }}>(opcional)</span>
+              </label>
+              <input
+                value={wpPhone}
+                onChange={e => setWpPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                style={{
+                  width: "100%", padding: "12px 16px", borderRadius: 12, fontSize: 14,
+                  border: "2px solid #f0e8e8", outline: "none", fontFamily: "Nunito, sans-serif",
+                  boxSizing: "border-box", transition: "border-color 0.2s",
+                }}
+                onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+              />
+            </div>
+
+            {/* Resumo do pedido */}
+            <div style={{
+              background: "#fdf9f9", borderRadius: 14, padding: 16, marginBottom: 20,
+              border: "1px solid #f0e8e8", fontSize: 13, color: "#7A5A5A",
+            }}>
+              <div style={{ fontWeight: 700, color: "#3D2B2B", marginBottom: 8 }}>{product.name}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span>{qty}× R$ {unitPrice.toFixed(2).replace(".", ",")}</span>
+                <span style={{ fontWeight: 700, color: "#C2877E" }}>R$ {totalPrice.toFixed(2).replace(".", ",")}</span>
+              </div>
+              {selectedSize && <div>Tamanho: {selectedSize}</div>}
+              {selectedColor && <div>Cor: {selectedColor}</div>}
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setShowWhatsAppModal(false)}
+                style={{
+                  flex: 1, padding: "13px", borderRadius: 12, border: "2px solid #f0e8e8",
+                  background: "#fff", color: "#9B7B7B", fontSize: 14, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                }}
+              >Cancelar</button>
+              <button
+                onClick={handleWhatsAppSend}
+                disabled={!wpName.trim()}
+                style={{
+                  flex: 2, padding: "13px", borderRadius: 12, border: "none",
+                  background: wpName.trim() ? "#25D366" : "#ccc",
+                  color: "#fff", fontSize: 14, fontWeight: 700,
+                  cursor: wpName.trim() ? "pointer" : "not-allowed",
+                  fontFamily: "Nunito, sans-serif",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  boxShadow: wpName.trim() ? "0 6px 16px rgba(37,211,102,0.3)" : "none",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.85L.057 23.285a.75.75 0 0 0 .916.916l5.435-1.471A11.955 11.955 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.725 9.725 0 0 1-4.979-1.37l-.357-.213-3.704 1.003 1.003-3.704-.213-.357A9.725 9.725 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
+                </svg>
+                Enviar via WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Breadcrumb */}
@@ -68,21 +179,24 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
               boxShadow: "0 12px 48px rgba(210,155,155,0.15)",
               marginBottom: 16,
             }}>
-              <ProductImage productId={product.id} index={activeImage} size="full" />
+              <ProductImage productId={product.id} src={product.images?.[activeImage]} index={activeImage} size="full" />
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              {product.images.map((_, i) => (
-                <button key={i} onClick={() => setActiveImage(i)} style={{
-                  flex: 1, aspectRatio: "1", borderRadius: 14, overflow: "hidden",
-                  border: activeImage === i ? "3px solid #D29B9B" : "3px solid transparent",
-                  cursor: "pointer", padding: 0, background: "none",
-                  boxShadow: activeImage === i ? "0 4px 12px rgba(210,155,155,0.3)" : "none",
-                  transition: "all 0.2s",
-                }}>
-                  <ProductImage productId={product.id} index={i} size="thumb" />
-                </button>
-              ))}
-            </div>
+            {/* Thumbnails — só mostra se houver 2+ imagens */}
+            {(product.images?.length > 1) && (
+              <div style={{ display: "flex", gap: 12 }}>
+                {product.images.map((_, i) => (
+                  <button key={i} onClick={() => setActiveImage(i)} style={{
+                    width: 80, height: 80, borderRadius: 14, overflow: "hidden",
+                    border: activeImage === i ? "3px solid #D29B9B" : "3px solid transparent",
+                    cursor: "pointer", padding: 0, background: "none", flexShrink: 0,
+                    boxShadow: activeImage === i ? "0 4px 12px rgba(210,155,155,0.3)" : "none",
+                    transition: "all 0.2s",
+                  }}>
+                    <ProductImage productId={product.id} src={product.images?.[i]} index={i} size="thumb" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -125,23 +239,30 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
               <span style={{ fontSize: 13, color: "#B89090" }}>({product.reviews} avaliações)</span>
             </div>
 
-            {/* Price */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 24 }}>
+            {/* Price — mostra preço total baseado na quantidade */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
               <span style={{ fontSize: 36, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
-                R$ {sizePrice.price.toFixed(2).replace(".", ",")}
+                R$ {totalPrice.toFixed(2).replace(".", ",")}
               </span>
               {sizePrice.originalPrice && (
                 <span style={{ fontSize: 18, color: "#B89090", textDecoration: "line-through" }}>
-                  R$ {sizePrice.originalPrice.toFixed(2).replace(".", ",")}
+                  R$ {(sizePrice.originalPrice * qty).toFixed(2).replace(".", ",")}
                 </span>
               )}
             </div>
+            {qty > 1 && (
+              <div style={{ fontSize: 13, color: "#9B7B7B", marginBottom: 20 }}>
+                {qty}× R$ {unitPrice.toFixed(2).replace(".", ",")} cada
+              </div>
+            )}
+            {qty === 1 && <div style={{ marginBottom: 20 }} />}
 
             <p style={{ fontSize: 16, color: "#7A5A5A", lineHeight: 1.8, margin: "0 0 28px" }}>
               {product.description}
             </p>
 
             {/* Size */}
+            {product.sizes?.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 10 }}>
                 Tamanho: <span style={{ color: "#D29B9B" }}>{selectedSize}</span>
@@ -158,8 +279,10 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
                 ))}
               </div>
             </div>
+            )}
 
             {/* Color */}
+            {product.colors?.length > 0 && (
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 10 }}>
                 Cor: <span style={{ color: "#759B96" }}>{selectedColor}</span>
@@ -176,6 +299,7 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
                 ))}
               </div>
             </div>
+            )}
 
             {/* Qty */}
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
@@ -195,9 +319,9 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
               </div>
             </div>
 
-            {/* CTA buttons */}
+            {/* CTA buttons — sem personalização, direto ao carrinho */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <button onClick={() => setShowModal(true)} style={{
+              <button onClick={handleAddToCart} style={{
                 ...btnBase,
                 background: "linear-gradient(135deg, #D29B9B, #C2877E)",
                 border: "none", color: "#fff",
@@ -207,9 +331,9 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
                   <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                 </svg>
-                Personalizar e Adicionar ao Carrinho
+                Adicionar ao Carrinho
               </button>
-              <button onClick={handleWhatsApp} style={{
+              <button onClick={() => setShowWhatsAppModal(true)} style={{
                 ...btnBase,
                 background: "#25D366", border: "none", color: "#fff",
                 boxShadow: "0 8px 24px rgba(37,211,102,0.3)",
@@ -224,7 +348,7 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
 
             {/* Trust badges */}
             <div style={{ display: "flex", gap: 16, marginTop: 24, flexWrap: "wrap" }}>
-              {[["🔒", "Pagamento seguro"], ["📦", "Embalagem especial"], ["💌", "Feito com amor"]].map(([ic, lb]) => (
+              {[["🔒", "Pagamento seguro"], ["🚫", "Não realizamos entrega"], ["📦", "Embalagem especial"], ["💌", "Feito com amor"]].map(([ic, lb]) => (
                 <div key={lb} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#9B7B7B" }}>
                   <span>{ic}</span><span>{lb}</span>
                 </div>
@@ -233,6 +357,8 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
           </div>
         </div>
       </div>
+
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }`}</style>
     </div>
   );
 };

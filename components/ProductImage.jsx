@@ -1,7 +1,33 @@
-// Product image placeholders — SVG illustrations for each product type
-// In production, replace with real photography
+// Product image component — exibe imagem real ou placeholder emoji
+const ProductImage = ({ productId, src, index = 0, size = "full", className = "" }) => {
+  // Se tiver URL de imagem real, exibe a foto
+  if (src && typeof src === "string" && src.startsWith("http")) {
+    return (
+      <div
+        className={className}
+        style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "inherit",
+          overflow: "hidden",
+        }}
+      >
+        <img
+          src={src}
+          alt="Produto"
+          loading="lazy"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
+    );
+  }
 
-const ProductImage = ({ productId, index = 0, size = "full", className = "" }) => {
+  // Fallback — placeholder visual com emoji
   const configs = {
     1: { icon: "🖼️", label: "porta-retrato família", bg: "#EDD5D5", accent: "#D29B9B" },
     2: { icon: "💡", label: "luminária nome 3D", bg: "#D5E5E3", accent: "#759B96" },
@@ -13,7 +39,8 @@ const ProductImage = ({ productId, index = 0, size = "full", className = "" }) =
     8: { icon: "🔤", label: "quadro de letras 3D", bg: "#D5E5E3", accent: "#759B96" },
   };
 
-  const c = configs[productId] || configs[1];
+  const defaultConfig = { icon: "📷", label: "sem imagem", bg: "#f0e8e8", accent: "#B89090" };
+  const c = configs[productId] || defaultConfig;
   const stripeAngle = index % 2 === 0 ? "45deg" : "135deg";
 
   return (
