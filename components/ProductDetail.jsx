@@ -3,6 +3,17 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
   const [selectedSize, setSelectedSize] = React.useState(product.sizes[0]);
   const [selectedColor, setSelectedColor] = React.useState(product.colors[0]);
   const [activeImage, setActiveImage] = React.useState(0);
+
+  const getSizePrice = (sizeName) => {
+    const sp = (product.sizePrices || []).find(s => s.size === sizeName);
+    return sp ? { price: sp.price, originalPrice: sp.originalPrice } : { price: product.price, originalPrice: product.originalPrice };
+  };
+  const [sizePrice, setSizePrice] = React.useState(getSizePrice(product.sizes[0]));
+
+  const handleSizeSelect = (size) => {
+    setSelectedSize(size);
+    setSizePrice(getSizePrice(size));
+  };
   const [showModal, setShowModal] = React.useState(false);
   const [qty, setQty] = React.useState(1);
   const isFav = favorites.includes(product.id);
@@ -117,11 +128,11 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
             {/* Price */}
             <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 24 }}>
               <span style={{ fontSize: 36, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
-                R$ {product.price.toFixed(2).replace(".", ",")}
+                R$ {sizePrice.price.toFixed(2).replace(".", ",")}
               </span>
-              {product.originalPrice && (
+              {sizePrice.originalPrice && (
                 <span style={{ fontSize: 18, color: "#B89090", textDecoration: "line-through" }}>
-                  R$ {product.originalPrice.toFixed(2).replace(".", ",")}
+                  R$ {sizePrice.originalPrice.toFixed(2).replace(".", ",")}
                 </span>
               )}
             </div>
@@ -137,7 +148,7 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {product.sizes.map(s => (
-                  <button key={s} onClick={() => setSelectedSize(s)} style={{
+                  <button key={s} onClick={() => handleSizeSelect(s)} style={{
                     padding: "10px 18px", borderRadius: 12, fontSize: 13, cursor: "pointer",
                     border: selectedSize === s ? "2px solid #D29B9B" : "2px solid #f0e8e8",
                     background: selectedSize === s ? "#fdf0f0" : "#fff",

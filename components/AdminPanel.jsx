@@ -1,8 +1,9 @@
 // Admin Panel — Product Management
 const EMPTY_PRODUCT = {
-  name: "", price: "", originalPrice: "", category: "decoracao",
+  name: "", category: "decoracao",
   description: "", shortDescription: "",
-  sizes: "", colors: "", badge: "", tags: "",
+  sizePrices: [{ size: "", price: "", originalPrice: "" }],
+  colors: "", badge: "", tags: "",
   rating: "5.0", reviews: "0", featured: false, inStock: true,
   personalizationFields: ["name", "date", "message"],
 };
@@ -32,12 +33,20 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
     setEditingProduct(product);
     setForm({
       name: product.name,
-      price: product.price.toString(),
-      originalPrice: product.originalPrice ? product.originalPrice.toString() : "",
       category: product.category,
       description: product.description,
       shortDescription: product.shortDescription,
-      sizes: product.sizes.join(", "),
+      sizePrices: product.sizePrices?.length > 0
+        ? product.sizePrices.map(sp => ({
+            size: sp.size,
+            price: sp.price.toString(),
+            originalPrice: sp.originalPrice?.toString() || "",
+          }))
+        : product.sizes.map(s => ({
+            size: s,
+            price: product.price.toString(),
+            originalPrice: product.originalPrice?.toString() || "",
+          })),
       colors: product.colors.join(", "),
       badge: product.badge || "",
       tags: product.tags.join(", "),
@@ -55,33 +64,45 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = "Nome obrigatório";
-    if (!form.price || isNaN(parseFloat(form.price))) e.price = "Preço válido obrigatório";
     if (!form.description.trim()) e.description = "Descrição obrigatória";
     if (!form.shortDescription.trim()) e.shortDescription = "Descrição curta obrigatória";
-    if (!form.sizes.trim()) e.sizes = "Ao menos um tamanho";
+    const valid = form.sizePrices.filter(sp => sp.size.trim() && sp.price);
+    if (valid.length === 0) e.sizePrices = "Adicione ao menos um tamanho com preço";
     if (!form.colors.trim()) e.colors = "Ao menos uma cor";
     return e;
   };
 
-  const buildProduct = (baseId) => ({
-    id: baseId,
-    name: form.name.trim(),
-    price: parseFloat(form.price),
-    originalPrice: form.originalPrice ? parseFloat(form.originalPrice) : null,
-    category: form.category,
-    description: form.description.trim(),
-    shortDescription: form.shortDescription.trim(),
-    sizes: form.sizes.split(",").map(s => s.trim()).filter(Boolean),
-    colors: form.colors.split(",").map(c => c.trim()).filter(Boolean),
-    badge: form.badge.trim() || null,
-    tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
-    rating: parseFloat(form.rating) || 5.0,
-    reviews: parseInt(form.reviews) || 0,
-    featured: form.featured,
-    inStock: form.inStock,
-    personalizationFields: form.personalizationFields,
-    images: [1, 2, 3],
-  });
+  const buildProduct = (baseId) => {
+    const validSP = form.sizePrices
+      .filter(sp => sp.size.trim() && sp.price)
+      .map(sp => ({
+        size: sp.size.trim(),
+        price: parseFloat(sp.price),
+        originalPrice: sp.originalPrice ? parseFloat(sp.originalPrice) : null,
+      }));
+    const prices = validSP.map(sp => sp.price);
+    const origPrices = validSP.filter(sp => sp.originalPrice).map(sp => sp.originalPrice);
+    return {
+      id: baseId,
+      name: form.name.trim(),
+      price: prices.length > 0 ? Math.min(...prices) : 0,
+      originalPrice: origPrices.length > 0 ? Math.min(...origPrices) : null,
+      category: form.category,
+      description: form.description.trim(),
+      shortDescription: form.shortDescription.trim(),
+      sizes: validSP.map(sp => sp.size),
+      sizePrices: validSP,
+      colors: form.colors.split(",").map(c => c.trim()).filter(Boolean),
+      badge: form.badge.trim() || null,
+      tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+      rating: parseFloat(form.rating) || 5.0,
+      reviews: parseInt(form.reviews) || 0,
+      featured: form.featured,
+      inStock: form.inStock,
+      personalizationFields: form.personalizationFields,
+      images: [1, 2, 3],
+    };
+  };
 
   const handleSave = () => {
     const e = validate();
@@ -99,6 +120,22 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
   const handleDelete = (id) => {
     onDeleteProduct(id);
     setDeleteConfirm(null);
+  };
+
+  const addSizePrice = () => setForm(f => ({
+    ...f, sizePrices: [...f.sizePrices, { size: "", price: "", originalPrice: "" }],
+  }));
+
+  const removeSizePrice = (idx) => setForm(f => ({
+    ...f, sizePrices: f.sizePrices.filter((_, i) => i !== idx),
+  }));
+
+  const updateSizePrice = (idx, field, value) => {
+    setForm(f => ({
+      ...f,
+      sizePrices: f.sizePrices.map((sp, i) => i === idx ? { ...sp, [field]: value } : sp),
+    }));
+    setErrors(er => ({ ...er, sizePrices: "" }));
   };
 
   const togglePersonField = (field) => {
@@ -204,35 +241,64 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
                 </div>
               </div>
 
-              {/* Pricing */}
+              {/* Tamanhos e Preços */}
               <div style={{ background: "#fff", borderRadius: 20, padding: 28, marginBottom: 20, boxShadow: "0 2px 12px rgba(210,155,155,0.08)" }}>
-                {sectionTitle("Preços")}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div style={fieldWrap(errors.price)}>
-                    <label style={labelStyle}>Preço (R$) *</label>
-                    <input style={{ ...inputStyle, borderColor: errors.price ? "#C2877E" : "#f0e8e8" }}
-                      placeholder="89.90" type="number" step="0.01" min="0"
-                      value={form.price} onChange={e => { setForm(f => ({ ...f, price: e.target.value })); setErrors(er => ({ ...er, price: "" })); }} />
-                    {errors.price && <span style={{ fontSize: 12, color: "#C2877E", marginTop: 4, display: "block" }}>{errors.price}</span>}
-                  </div>
-                  <div style={fieldWrap(false)}>
-                    <label style={labelStyle}>Preço Original (R$) <span style={{ fontWeight: 400, color: "#9B7B7B" }}>(opcional — mostra desconto)</span></label>
-                    <input style={inputStyle} placeholder="119.90" type="number" step="0.01" min="0"
-                      value={form.originalPrice} onChange={e => setForm(f => ({ ...f, originalPrice: e.target.value }))} />
-                  </div>
+                {sectionTitle("Tamanhos e Preços", "Defina o preço para cada tamanho disponível")}
+                <div style={{ display: "grid", gridTemplateColumns: "12px 2fr 1fr 1fr 36px", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <span />
+                  <span style={{ ...labelStyle, marginBottom: 0 }}>Tamanho *</span>
+                  <span style={{ ...labelStyle, marginBottom: 0 }}>Preço (R$) *</span>
+                  <span style={{ ...labelStyle, marginBottom: 0 }}>Preço original (R$)</span>
+                  <span />
                 </div>
+                {form.sizePrices.map((sp, idx) => (
+                  <div key={idx} style={{ display: "grid", gridTemplateColumns: "12px 2fr 1fr 1fr 36px", gap: 8, alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontSize: 11, color: "#B89090", fontWeight: 700 }}>{idx + 1}</span>
+                    <input
+                      style={{ ...inputStyle }}
+                      placeholder="Ex: Pequeno (10x15)"
+                      value={sp.size}
+                      onChange={e => updateSizePrice(idx, "size", e.target.value)}
+                    />
+                    <input
+                      style={{ ...inputStyle }}
+                      type="number" step="0.01" min="0"
+                      placeholder="89.90"
+                      value={sp.price}
+                      onChange={e => updateSizePrice(idx, "price", e.target.value)}
+                    />
+                    <input
+                      style={{ ...inputStyle }}
+                      type="number" step="0.01" min="0"
+                      placeholder="119.90"
+                      value={sp.originalPrice}
+                      onChange={e => updateSizePrice(idx, "originalPrice", e.target.value)}
+                    />
+                    <button
+                      onClick={() => removeSizePrice(idx)}
+                      disabled={form.sizePrices.length === 1}
+                      style={{
+                        width: 36, height: 38, borderRadius: 10,
+                        border: "2px solid #f0e8e8", background: "#fff",
+                        color: "#C2877E", cursor: form.sizePrices.length === 1 ? "not-allowed" : "pointer",
+                        fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
+                        opacity: form.sizePrices.length === 1 ? 0.35 : 1, flexShrink: 0,
+                      }}
+                    >×</button>
+                  </div>
+                ))}
+                <button onClick={addSizePrice} style={{
+                  marginTop: 4, padding: "9px 16px", borderRadius: 12,
+                  border: "2px dashed #f0e8e8", background: "none",
+                  color: "#D29B9B", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                }}>+ Adicionar tamanho</button>
+                {errors.sizePrices && <span style={{ fontSize: 12, color: "#C2877E", marginTop: 8, display: "block" }}>{errors.sizePrices}</span>}
               </div>
 
-              {/* Variants */}
+              {/* Cores */}
               <div style={{ background: "#fff", borderRadius: 20, padding: 28, marginBottom: 20, boxShadow: "0 2px 12px rgba(210,155,155,0.08)" }}>
                 {sectionTitle("Variações", "Separe as opções por vírgula")}
-                <div style={fieldWrap(errors.sizes)}>
-                  <label style={labelStyle}>Tamanhos *</label>
-                  <input style={{ ...inputStyle, borderColor: errors.sizes ? "#C2877E" : "#f0e8e8" }}
-                    placeholder="Ex: Pequeno (10x15), Médio (15x20), Grande (20x30)"
-                    value={form.sizes} onChange={e => { setForm(f => ({ ...f, sizes: e.target.value })); setErrors(er => ({ ...er, sizes: "" })); }} />
-                  {errors.sizes && <span style={{ fontSize: 12, color: "#C2877E", marginTop: 4, display: "block" }}>{errors.sizes}</span>}
-                </div>
                 <div style={fieldWrap(errors.colors)}>
                   <label style={labelStyle}>Cores *</label>
                   <input style={{ ...inputStyle, borderColor: errors.colors ? "#C2877E" : "#f0e8e8" }}

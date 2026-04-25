@@ -64,6 +64,7 @@ const App = () => {
           reviews: row.reviews,
           tags: row.tags || [],
           personalizationFields: row.personalization_fields || [],
+          sizePrices: row.size_prices || [],
           featured: row.featured,
           inStock: row.in_stock,
         })));

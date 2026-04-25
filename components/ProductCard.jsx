@@ -2,6 +2,8 @@
 const ProductCard = ({ product, favorites, toggleFavorite, addToCart, setPage, setSelectedProduct }) => {
   const isFav = favorites.includes(product.id);
   const [hovered, setHovered] = React.useState(false);
+  const hasVariedPrices = (product.sizePrices || []).length > 1 &&
+    new Set((product.sizePrices || []).map(sp => sp.price)).size > 1;
 
   const handleAddToCart = (e) => {
     e.stopPropagation();
@@ -82,9 +84,10 @@ const ProductCard = ({ product, favorites, toggleFavorite, addToCart, setPage, s
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
           <span style={{ fontSize: 18, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
+            {hasVariedPrices && <span style={{ fontSize: 11, fontWeight: 600, color: "#B89090" }}>a partir de </span>}
             R$ {product.price.toFixed(2).replace(".", ",")}
           </span>
-          {product.originalPrice && (
+          {!hasVariedPrices && product.originalPrice && (
             <span style={{ fontSize: 12, color: "#B89090", textDecoration: "line-through" }}>
               R$ {product.originalPrice.toFixed(2).replace(".", ",")}
             </span>
