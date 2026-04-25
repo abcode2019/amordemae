@@ -8,8 +8,149 @@ const EMPTY_PRODUCT = {
   personalizationFields: ["name", "date", "message"],
 };
 
+const STATUS_MAP = {
+  pending:    { label: "Pendente",     color: "#C2877E", bg: "#fdf0f0" },
+  confirmed:  { label: "Confirmado",   color: "#759B96", bg: "#f0f5f4" },
+  production: { label: "Em Produção",  color: "#8B6B4A", bg: "#f8f5f0" },
+  shipped:    { label: "Enviado",      color: "#4A6A9B", bg: "#f0f4f9" },
+  delivered:  { label: "Entregue",     color: "#4A9B6A", bg: "#f0f9f4" },
+  cancelled:  { label: "Cancelado",    color: "#9B4A4A", bg: "#f9f0f0" },
+};
+
+const OrdersView = ({ onLogout, setPage, onBack }) => {
+  const [orders, setOrders] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(null);
+
+  const load = () => {
+    setLoading(true);
+    db.from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) setOrders(data);
+        setLoading(false);
+      });
+  };
+
+  React.useEffect(() => { load(); }, []);
+
+  const updateStatus = async (orderId, status) => {
+    await db.from('orders').update({ status }).eq('id', orderId);
+    setOrders(os => os.map(o => o.id === orderId ? { ...o, status } : o));
+  };
+
+  const fmt = (val) => Number(val).toFixed(2).replace(".", ",");
+  const fmtDate = (iso) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0f0", padding: "0 0 60px" }}>
+      <AdminTopbar onLogout={onLogout} setPage={setPage} />
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#9B7B7B", fontFamily: "Nunito, sans-serif", marginBottom: 8, display: "block" }}>
+              ← Voltar para Produtos
+            </button>
+            <h1 style={{ fontFamily: "Playfair Display, serif", fontSize: 30, color: "#3D2B2B", margin: "0 0 4px" }}>Pedidos</h1>
+            <p style={{ color: "#9B7B7B", fontSize: 14, margin: 0 }}>{orders.length} pedido{orders.length !== 1 ? "s" : ""} registrado{orders.length !== 1 ? "s" : ""}</p>
+          </div>
+          <button onClick={load} style={{
+            padding: "11px 22px", borderRadius: 12, border: "2px solid #f0e8e8",
+            background: "#fff", color: "#9B7B7B", fontSize: 14, fontWeight: 700,
+            cursor: "pointer", fontFamily: "Nunito, sans-serif",
+          }}>↻ Atualizar</button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 60, color: "#9B7B7B", fontSize: 15 }}>Carregando pedidos…</div>
+        ) : orders.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 60 }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
+            <p style={{ color: "#9B7B7B", fontSize: 16 }}>Nenhum pedido ainda</p>
+          </div>
+        ) : orders.map(order => {
+          const st = STATUS_MAP[order.status] || STATUS_MAP.pending;
+          const isOpen = expanded === order.id;
+          return (
+            <div key={order.id} style={{ background: "#fff", borderRadius: 16, marginBottom: 12, boxShadow: "0 2px 12px rgba(210,155,155,0.08)", overflow: "hidden" }}>
+              {/* Row */}
+              <div
+                onClick={() => setExpanded(isOpen ? null : order.id)}
+                style={{ padding: "16px 20px", cursor: "pointer", display: "grid", gridTemplateColumns: "1fr 1fr 110px 130px 36px", gap: 12, alignItems: "center" }}
+              >
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{order.customer_name || "—"}</div>
+                  <div style={{ fontSize: 12, color: "#9B7B7B" }}>{order.customer_phone || "sem telefone"}</div>
+                  <div style={{ fontSize: 11, color: "#B89090", marginTop: 2 }}>{fmtDate(order.created_at)}</div>
+                </div>
+                <div style={{ fontSize: 13, color: "#7A5A5A" }}>
+                  {(order.order_items || []).length} {(order.order_items || []).length === 1 ? "item" : "itens"}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
+                  R$ {fmt(order.total)}
+                </div>
+                <select
+                  value={order.status}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => updateStatus(order.id, e.target.value)}
+                  style={{
+                    padding: "6px 10px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+                    border: "2px solid " + st.color, background: st.bg, color: st.color,
+                    fontFamily: "Nunito, sans-serif", cursor: "pointer", outline: "none",
+                  }}
+                >
+                  {Object.entries(STATUS_MAP).map(([val, { label }]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 16, color: "#B89090", textAlign: "center", transition: "transform 0.2s", display: "block", transform: isOpen ? "rotate(180deg)" : "none" }}>▾</span>
+              </div>
+
+              {/* Items expandido */}
+              {isOpen && (
+                <div style={{ borderTop: "1px solid #f0e8e8", padding: "16px 20px", background: "#fdf9f9" }}>
+                  {(order.order_items || []).length === 0 ? (
+                    <p style={{ color: "#9B7B7B", fontSize: 13, margin: 0 }}>Sem itens registrados</p>
+                  ) : (order.order_items || []).map(item => (
+                    <div key={item.id} style={{
+                      display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                      gap: 12, padding: "10px 0",
+                      borderBottom: "1px solid #f5eded", alignItems: "start",
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B" }}>{item.product_name}</div>
+                        {item.custom_name && <div style={{ fontSize: 11, color: "#9B7B7B" }}>✏️ {item.custom_name}</div>}
+                        {item.custom_date && <div style={{ fontSize: 11, color: "#9B7B7B" }}>📅 {item.custom_date}</div>}
+                        {item.custom_message && <div style={{ fontSize: 11, color: "#9B7B7B" }}>💬 {item.custom_message}</div>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#7A5A5A" }}>
+                        {item.size && <div>{item.size}</div>}
+                        {item.color && <div>{item.color}</div>}
+                      </div>
+                      <div style={{ fontSize: 13, color: "#9B7B7B" }}>× {item.qty}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#C2877E", textAlign: "right" }}>
+                        R$ {fmt(item.unit_price * item.qty)}
+                      </div>
+                    </div>
+                  ))}
+                  {order.notes && (
+                    <div style={{ marginTop: 12, padding: 12, background: "#fff8f0", borderRadius: 10, fontSize: 13, color: "#8B6B4A" }}>
+                      💬 {order.notes}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, onLogout, setPage }) => {
-  const [view, setView] = React.useState("list"); // list | new | edit
+  const [view, setView] = React.useState("list"); // list | new | edit | orders
   const [editingProduct, setEditingProduct] = React.useState(null);
   const [form, setForm] = React.useState(EMPTY_PRODUCT);
   const [errors, setErrors] = React.useState({});
@@ -171,6 +312,11 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
     { value: "utilidade", label: "Utilidades" },
   ];
 
+  // --- ORDERS VIEW ---
+  if (view === "orders") {
+    return <OrdersView onLogout={onLogout} setPage={setPage} onBack={() => setView("list")} />;
+  }
+
   // --- FORM VIEW ---
   if (view === "new" || view === "edit") {
     return (
@@ -310,17 +456,46 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
 
               {/* Personalization */}
               <div style={{ background: "#fff", borderRadius: 20, padding: 28, boxShadow: "0 2px 12px rgba(210,155,155,0.08)" }}>
-                {sectionTitle("Campos de Personalização", "Quais dados pedir ao cliente?")}
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {[["name", "✏️ Nome"], ["date", "📅 Data especial"], ["message", "💬 Mensagem / Observação"]].map(([field, label]) => (
-                    <button key={field} onClick={() => togglePersonField(field)} style={{
-                      padding: "10px 18px", borderRadius: 12, fontSize: 13, cursor: "pointer",
-                      border: form.personalizationFields.includes(field) ? "2px solid #D29B9B" : "2px solid #f0e8e8",
-                      background: form.personalizationFields.includes(field) ? "#fdf0f0" : "#fff",
-                      color: form.personalizationFields.includes(field) ? "#D29B9B" : "#9B7B7B",
-                      fontFamily: "Nunito, sans-serif", fontWeight: 700, transition: "all 0.2s",
-                    }}>{label}</button>
-                  ))}
+                {sectionTitle("Campos de Personalização", "Ative os dados que o cliente deverá preencher")}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { field: "name",    icon: "✏️", label: "Nome / Texto principal",  badge: "obrigatório se ativo" },
+                    { field: "date",    icon: "📅", label: "Data especial",            badge: "opcional" },
+                    { field: "message", icon: "💬", label: "Mensagem / Observação",    badge: "opcional" },
+                  ].map(({ field, icon, label, badge }) => {
+                    const active = form.personalizationFields.includes(field);
+                    return (
+                      <div key={field} onClick={() => togglePersonField(field)} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "13px 16px", borderRadius: 14, cursor: "pointer",
+                        border: "2px solid " + (active ? "#D29B9B" : "#f0e8e8"),
+                        background: active ? "#fdf8f8" : "#fafafa",
+                        transition: "all 0.2s",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 18 }}>{icon}</span>
+                          <div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: active ? "#3D2B2B" : "#B89090" }}>{label}</span>
+                            <span style={{
+                              marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 5,
+                              background: active ? "#fdf0f0" : "#f0f0f0",
+                              color: active ? "#C2877E" : "#B89090",
+                            }}>{badge}</span>
+                          </div>
+                        </div>
+                        <div style={{
+                          width: 44, height: 24, borderRadius: 12, position: "relative",
+                          background: active ? "#D29B9B" : "#e0d0d0", transition: "background 0.2s", flexShrink: 0,
+                        }}>
+                          <div style={{
+                            position: "absolute", top: 3, left: active ? 23 : 3,
+                            width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                            transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -431,6 +606,13 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
             </h1>
             <p style={{ color: "#9B7B7B", fontSize: 14, margin: 0 }}>{products.length} produtos cadastrados</p>
           </div>
+          <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setView("orders")} style={{
+            padding: "13px 22px", borderRadius: 14, border: "2px solid #f0e8e8",
+            background: "#fff", color: "#7A5A5A", fontSize: 14, fontWeight: 700,
+            cursor: "pointer", fontFamily: "Nunito, sans-serif",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>📋 Pedidos</button>
           <button onClick={openNew} style={{
             padding: "13px 26px", borderRadius: 14, border: "none",
             background: "linear-gradient(135deg, #D29B9B, #C2877E)",
@@ -441,6 +623,7 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
           }}>
             <span style={{ fontSize: 18 }}>+</span> Novo Produto
           </button>
+          </div>
         </div>
 
         {/* Stats */}
