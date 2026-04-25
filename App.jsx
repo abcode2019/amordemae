@@ -1,7 +1,27 @@
 // Main App — state management + routing
 const App = () => {
+  // --- URL routing helpers ---
+  const pathToRoute = (pathname) => {
+    if (pathname === "/" || pathname === "" || pathname === "/index.html") return { page: "landing" };
+    if (pathname === "/catalogo") return { page: "catalog" };
+    if (pathname.startsWith("/produto/")) return { page: "product", productId: pathname.slice(9) };
+    if (pathname === "/carrinho") return { page: "cart" };
+    if (pathname === "/favoritos") return { page: "favorites" };
+    return { page: "landing" };
+  };
+
+  const pageToPath = (pg, product) => {
+    if (pg === "catalog")   return "/catalogo";
+    if (pg === "product")   return product ? `/produto/${product.id}` : "/catalogo";
+    if (pg === "cart")      return "/carrinho";
+    if (pg === "favorites") return "/favoritos";
+    return "/";
+  };
+
+  const initialRoute = pathToRoute(window.location.pathname);
+
   // Routing
-  const [page, setPage] = React.useState("landing");
+  const [page, setPageState] = React.useState(initialRoute.page);
   const [selectedProduct, setSelectedProduct] = React.useState(null);
 
   // Admin auth
@@ -49,11 +69,43 @@ const App = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page, adminPage]);
 
+  // Resolve product when app loads directly on /produto/:id
+  React.useEffect(() => {
+    if (initialRoute.page === "product" && initialRoute.productId) {
+      const found = products.find(p => String(p.id) === String(initialRoute.productId));
+      if (found) setSelectedProduct(found);
+      else setPageState("catalog");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync state → URL (pushState on navigation)
+  React.useEffect(() => {
+    const path = pageToPath(page, selectedProduct);
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+    }
+  }, [page, selectedProduct]);
+
+  // Sync URL → state (browser back / forward)
+  React.useEffect(() => {
+    const handler = () => {
+      const route = pathToRoute(window.location.pathname);
+      setPageState(route.page);
+      if (route.page === "product" && route.productId) {
+        const found = products.find(p => String(p.id) === String(route.productId));
+        if (found) setSelectedProduct(found);
+        else setPageState("catalog");
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [products]);
+
   // Listen for goto events (from AdminLogin back button)
   React.useEffect(() => {
     const handler = (e) => {
       setAdminPage(null);
-      setPage(e.detail || "landing");
+      setPageState(e.detail || "landing");
     };
     window.addEventListener("amordemae:goto", handler);
     return () => window.removeEventListener("amordemae:goto", handler);
@@ -147,9 +199,11 @@ const App = () => {
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const favCount = favorites.length;
 
+  const navigateTo = (p) => { setAdminPage(null); setPageState(p); };
+
   const sharedProps = {
     favorites, toggleFavorite, addToCart,
-    setPage: (p) => { setAdminPage(null); setPage(p); },
+    setPage: navigateTo,
     setSelectedProduct, showToast,
   };
 
@@ -172,7 +226,7 @@ const App = () => {
           onEditProduct={handleEditProduct}
           onDeleteProduct={handleDeleteProduct}
           onLogout={handleAdminLogout}
-          setPage={(p) => { setAdminPage(null); setPage(p); }}
+          setPage={navigateTo}
         />
         <Toast toasts={toasts} removeToast={removeToast} />
       </>
