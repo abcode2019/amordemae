@@ -17,7 +17,9 @@ DROP POLICY IF EXISTS "produtos_atualizacao_admin" ON produtos;
 DROP POLICY IF EXISTS "produtos_exclusao_admin" ON produtos;
 DROP POLICY IF EXISTS "pedidos_leitura_admin" ON pedidos;
 DROP POLICY IF EXISTS "pedidos_atualizacao_admin" ON pedidos;
+DROP POLICY IF EXISTS "pedidos_insercao_publica" ON pedidos;
 DROP POLICY IF EXISTS "itens_pedido_leitura_admin" ON itens_pedido;
+DROP POLICY IF EXISTS "itens_pedido_insercao_publica" ON itens_pedido;
 DROP POLICY IF EXISTS "depoimentos_leitura_admin" ON depoimentos;
 DROP POLICY IF EXISTS "depoimentos_atualizacao_admin" ON depoimentos;
 
@@ -49,10 +51,20 @@ CREATE POLICY "pedidos_atualizacao_admin"
   USING (true)
   WITH CHECK (true);
 
+CREATE POLICY "pedidos_insercao_publica"
+  ON pedidos FOR INSERT
+  TO public
+  WITH CHECK (true);
+
 CREATE POLICY "itens_pedido_leitura_admin"
   ON itens_pedido FOR SELECT
   TO authenticated
   USING (true);
+
+CREATE POLICY "itens_pedido_insercao_publica"
+  ON itens_pedido FOR INSERT
+  TO public
+  WITH CHECK (true);
 
 CREATE POLICY "depoimentos_leitura_admin"
   ON depoimentos FOR SELECT

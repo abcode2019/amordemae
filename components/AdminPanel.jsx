@@ -18,10 +18,20 @@ const STATUS_MAP = {
   cancelado:  { label: "Cancelado",    color: "#9B4A4A", bg: "#f9f0f0" },
 };
 
-const OrdersView = ({ onLogout, setPage, onBack }) => {
+const OrdersView = ({ products, onLogout, setPage, onBack }) => {
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [expanded, setExpanded] = React.useState(null);
+  
+  // Dashboard & Manual Entry state
+  const [showManual, setShowManual] = React.useState(false);
+  const [manualForm, setManualForm] = React.useState({ 
+    nome_cliente: '', total: '', status: 'entregue', observacoes: '',
+    produto_id: '', quantidade: 1 
+  });
+
+  // Delete Confirmation state
+  const [deleteOrderId, setDeleteOrderId] = React.useState(null);
 
   const load = () => {
     setLoading(true);
@@ -41,14 +51,68 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
     setOrders(os => os.map(o => o.id === orderId ? { ...o, status } : o));
   };
 
+  const deleteOrder = async () => {
+    if (!deleteOrderId) return;
+    const { error } = await db.from('pedidos').delete().eq('id', deleteOrderId);
+    if (error) {
+      console.error("Erro ao excluir:", error);
+      alert("Não foi possível excluir o pedido. Por favor, verifique as permissões do banco de dados.");
+    } else {
+      setOrders(os => os.filter(o => o.id !== deleteOrderId));
+    }
+    setDeleteOrderId(null);
+  };
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    const { data } = await db.from('pedidos').insert({
+      nome_cliente: manualForm.nome_cliente.trim() || 'Venda Manual',
+      total: Number(manualForm.total.toString().replace(',', '.')),
+      status: manualForm.status,
+      observacoes: manualForm.observacoes,
+    }).select('*, itens_pedido(*)').single();
+    if (data) {
+      if (manualForm.produto_id) {
+        const prod = products.find(p => String(p.id) === manualForm.produto_id);
+        if (prod) {
+          const { error: itemError } = await db.from('itens_pedido').insert({
+            pedido_id: data.id,
+            produto_id: prod.id,
+            nome_produto: prod.name,
+            preco_unitario: prod.price,
+            quantidade: manualForm.quantidade || 1
+          });
+          if (!itemError) {
+             data.itens_pedido = [{
+                id: Date.now(),
+                pedido_id: data.id,
+                produto_id: prod.id,
+                nome_produto: prod.name,
+                preco_unitario: prod.price,
+                quantidade: manualForm.quantidade || 1
+             }];
+          }
+        }
+      }
+      setOrders([data, ...orders]);
+      setShowManual(false);
+      setManualForm({ nome_cliente: '', total: '', status: 'entregue', observacoes: '', produto_id: '', quantidade: 1 });
+    }
+  };
+
   const fmt = (val) => Number(val).toFixed(2).replace(".", ",");
   const fmtDate = (iso) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  const countPendente = orders.filter(o => o.status === 'pendente').length;
+  const countProducao = orders.filter(o => o.status === 'producao').length;
+  const countEntregue = orders.filter(o => o.status === 'entregue').length;
+  const valorEntregue = orders.filter(o => o.status === 'entregue').reduce((sum, o) => sum + Number(o.total), 0);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f5f0f0", padding: "0 0 60px" }}>
       <AdminTopbar onLogout={onLogout} setPage={setPage} />
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 16 }}>
           <div>
             <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#9B7B7B", fontFamily: "Nunito, sans-serif", marginBottom: 8, display: "block" }}>
               ← Voltar para Produtos
@@ -56,11 +120,39 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
             <h1 style={{ fontFamily: "Playfair Display, serif", fontSize: 30, color: "#3D2B2B", margin: "0 0 4px" }}>Pedidos</h1>
             <p style={{ color: "#9B7B7B", fontSize: 14, margin: 0 }}>{orders.length} pedido{orders.length !== 1 ? "s" : ""} registrado{orders.length !== 1 ? "s" : ""}</p>
           </div>
-          <button onClick={load} style={{
-            padding: "11px 22px", borderRadius: 12, border: "2px solid #f0e8e8",
-            background: "#fff", color: "#9B7B7B", fontSize: 14, fontWeight: 700,
-            cursor: "pointer", fontFamily: "Nunito, sans-serif",
-          }}>↻ Atualizar</button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={() => setShowManual(true)} style={{
+              padding: "11px 22px", borderRadius: 12, border: "none",
+              background: "linear-gradient(135deg, #D29B9B, #C2877E)",
+              color: "#fff", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", fontFamily: "Nunito, sans-serif",
+              boxShadow: "0 4px 12px rgba(210,155,155,0.3)"
+            }}>+ Lançamento Manual</button>
+            <button onClick={load} style={{
+              padding: "11px 22px", borderRadius: 12, border: "2px solid #f0e8e8",
+              background: "#fff", color: "#9B7B7B", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", fontFamily: "Nunito, sans-serif",
+            }}>↻ Atualizar</button>
+          </div>
+        </div>
+
+        {/* Dashboard */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
+          <div style={{ background: "#fff", padding: 20, borderRadius: 16, border: "1px solid #f0e8e8", boxShadow: "0 2px 12px rgba(210,155,155,0.05)" }}>
+            <div style={{ fontSize: 13, color: "#9B7B7B", fontWeight: 700, marginBottom: 8 }}>VENDAS CONCLUÍDAS</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#4A9B6A", fontFamily: "Nunito, sans-serif" }}>R$ {fmt(valorEntregue)}</div>
+            <div style={{ fontSize: 12, color: "#B89090", marginTop: 4 }}>{countEntregue} pedidos entregues</div>
+          </div>
+          <div style={{ background: "#fff", padding: 20, borderRadius: 16, border: "1px solid #f0e8e8", boxShadow: "0 2px 12px rgba(210,155,155,0.05)" }}>
+            <div style={{ fontSize: 13, color: "#9B7B7B", fontWeight: 700, marginBottom: 8 }}>EM PRODUÇÃO</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#8B6B4A", fontFamily: "Nunito, sans-serif" }}>{countProducao}</div>
+            <div style={{ fontSize: 12, color: "#B89090", marginTop: 4 }}>sendo fabricados</div>
+          </div>
+          <div style={{ background: "#fff", padding: 20, borderRadius: 16, border: "1px solid #f0e8e8", boxShadow: "0 2px 12px rgba(210,155,155,0.05)" }}>
+            <div style={{ fontSize: 13, color: "#9B7B7B", fontWeight: 700, marginBottom: 8 }}>PENDENTES</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>{countPendente}</div>
+            <div style={{ fontSize: 12, color: "#B89090", marginTop: 4 }}>aguardando confirmação</div>
+          </div>
         </div>
 
         {loading ? (
@@ -78,7 +170,7 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
               {/* Row */}
               <div
                 onClick={() => setExpanded(isOpen ? null : order.id)}
-                style={{ padding: "16px 20px", cursor: "pointer", display: "grid", gridTemplateColumns: "1fr 1fr 110px 130px 36px", gap: 12, alignItems: "center" }}
+                style={{ padding: "16px 20px", cursor: "pointer", display: "grid", gridTemplateColumns: "1fr 1fr 110px 130px 60px", gap: 12, alignItems: "center" }}
               >
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{order.nome_cliente || "—"}</div>
@@ -105,7 +197,12 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
                     <option key={val} value={val}>{label}</option>
                   ))}
                 </select>
-                <span style={{ fontSize: 16, color: "#B89090", textAlign: "center", transition: "transform 0.2s", display: "block", transform: isOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                  <button onClick={e => { e.stopPropagation(); setDeleteOrderId(order.id); }} style={{
+                    background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#C2877E", padding: "4px"
+                  }} title="Excluir">🗑️</button>
+                  <span style={{ fontSize: 16, color: "#B89090", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                </div>
               </div>
 
               {/* Items expandido */}
@@ -146,18 +243,199 @@ const OrdersView = ({ onLogout, setPage, onBack }) => {
           );
         })}
       </div>
+
+      {/* Manual Entry Modal */}
+      {showManual && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 24
+        }} onClick={() => setShowManual(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#fff", borderRadius: 24, padding: 32, maxWidth: 420, width: "100%",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.2)", animation: "fadeIn 0.2s ease"
+          }}>
+            <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 24, color: "#3D2B2B", margin: "0 0 20px" }}>
+              Lançamento Manual
+            </h2>
+            <form onSubmit={handleManualSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Cliente / Descrição</label>
+                <input required placeholder="Ex: Venda Feira / Maria" value={manualForm.nome_cliente}
+                  onChange={e => setManualForm(f => ({...f, nome_cliente: e.target.value}))}
+                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Produto Adquirido <span style={{fontWeight:400, color:"#9B7B7B"}}>(opcional)</span></label>
+                <select value={manualForm.produto_id} onChange={e => {
+                  const pid = e.target.value;
+                  const prod = products.find(p => String(p.id) === pid);
+                  setManualForm(f => ({
+                    ...f, 
+                    produto_id: pid,
+                    total: prod && !f.total ? prod.price.toString() : f.total
+                  }));
+                }}
+                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box", background: "#fff" }}>
+                  <option value="">-- Apenas registrar valor --</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} (R$ {fmt(p.price)})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: manualForm.produto_id ? "1fr 2fr" : "1fr", gap: 12 }}>
+                {manualForm.produto_id && (
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Qtd.</label>
+                    <input type="number" min="1" value={manualForm.quantidade}
+                      onChange={e => {
+                        const qty = Number(e.target.value);
+                        const prod = products.find(p => String(p.id) === manualForm.produto_id);
+                        setManualForm(f => ({
+                          ...f, quantidade: qty,
+                          total: prod ? (prod.price * qty).toString() : f.total
+                        }));
+                      }}
+                      style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box" }} />
+                  </div>
+                )}
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Valor Total (R$)</label>
+                  <input required type="number" step="0.01" min="0" placeholder="100.00" value={manualForm.total}
+                    onChange={e => setManualForm(f => ({...f, total: e.target.value}))}
+                    style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Status Inicial</label>
+                <select value={manualForm.status} onChange={e => setManualForm(f => ({...f, status: e.target.value}))}
+                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box", background: "#fff" }}>
+                  {Object.entries(STATUS_MAP).map(([val, {label}]) => <option key={val} value={val}>{label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B", marginBottom: 6, display: "block" }}>Observações (opcional)</label>
+                <textarea placeholder="Detalhes do pedido manual..." value={manualForm.observacoes}
+                  onChange={e => setManualForm(f => ({...f, observacoes: e.target.value}))}
+                  style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", fontSize: 14, boxSizing: "border-box", minHeight: 80, resize: "vertical" }} />
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                <button type="button" onClick={() => setShowManual(false)} style={{
+                  flex: 1, padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8", background: "#fff", color: "#9B7B7B", fontWeight: 700, cursor: "pointer"
+                }}>Cancelar</button>
+                <button type="submit" style={{
+                  flex: 1, padding: "12px", borderRadius: 12, border: "none", background: "#759B96", color: "#fff", fontWeight: 700, cursor: "pointer"
+                }}>Salvar Lançamento</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteOrderId && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 24
+        }} onClick={() => setDeleteOrderId(null)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#fff", borderRadius: 24, padding: 32, maxWidth: 360, width: "100%",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.2)", animation: "fadeIn 0.2s ease", textAlign: "center"
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🗑️</div>
+            <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 24, color: "#3D2B2B", margin: "0 0 12px" }}>
+              Excluir Pedido?
+            </h2>
+            <p style={{ color: "#9B7B7B", fontSize: 14, margin: "0 0 24px", lineHeight: 1.5 }}>
+              Tem certeza que deseja apagar este pedido? Esta ação não poderá ser desfeita.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setDeleteOrderId(null)} style={{
+                flex: 1, padding: "12px", borderRadius: 12, border: "2px solid #f0e8e8",
+                background: "#fff", color: "#9B7B7B", fontWeight: 700, cursor: "pointer",
+                fontFamily: "Nunito, sans-serif"
+              }}>Cancelar</button>
+              <button onClick={deleteOrder} style={{
+                flex: 1, padding: "12px", borderRadius: 12, border: "none",
+                background: "#C2877E", color: "#fff", fontWeight: 700, cursor: "pointer",
+                fontFamily: "Nunito, sans-serif", boxShadow: "0 4px 12px rgba(194,135,126,0.3)"
+              }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, onLogout, setPage }) => {
-  const [view, setView] = React.useState("list"); // list | new | edit | orders
+  const getInitialView = () => {
+    const p = window.location.pathname;
+    if (p === "/admin/pedidos") return "orders";
+    if (p === "/admin/produto/novo") return "new";
+    if (p.startsWith("/admin/produto/editar/")) return "edit";
+    return "list";
+  };
+
+  const [view, setView] = React.useState(getInitialView); // list | new | edit | orders
   const [editingProduct, setEditingProduct] = React.useState(null);
   const [form, setForm] = React.useState(EMPTY_PRODUCT);
   const [errors, setErrors] = React.useState({});
   const [search, setSearch] = React.useState("");
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [saved, setSaved] = React.useState(false);
+
+  // Sync /admin/produto/editar/:id when products load
+  React.useEffect(() => {
+    const p = window.location.pathname;
+    if (p.startsWith("/admin/produto/editar/")) {
+      const id = p.split("/").pop();
+      const prod = products.find(x => String(x.id) === id);
+      if (prod) {
+        setEditingProduct(prod);
+        if (view !== "edit") setView("edit");
+      }
+    }
+  }, [products]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push state when view changes
+  React.useEffect(() => {
+    let path = "/admin";
+    if (view === "orders") path = "/admin/pedidos";
+    else if (view === "new") path = "/admin/produto/novo";
+    else if (view === "edit" && editingProduct) path = `/admin/produto/editar/${editingProduct.id}`;
+    
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, "", path);
+    }
+  }, [view, editingProduct]);
+
+  // Handle browser back/forward
+  React.useEffect(() => {
+    const handler = () => {
+      const p = window.location.pathname;
+      if (p === "/admin/pedidos") setView("orders");
+      else if (p === "/admin/produto/novo") {
+        setEditingProduct(null);
+        setView("new");
+      }
+      else if (p.startsWith("/admin/produto/editar/")) {
+        const id = p.split("/").pop();
+        const prod = products.find(x => String(x.id) === id);
+        if (prod) {
+          setEditingProduct(prod);
+          setView("edit");
+        } else setView("list");
+      } else {
+        setView("list");
+      }
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [products]);
   const [uploading, setUploading] = React.useState(false);
   const [newFiles, setNewFiles] = React.useState([]); // File objects to upload
   const [previewUrls, setPreviewUrls] = React.useState([]); // preview URLs for new files
@@ -392,7 +670,7 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
 
   // --- ORDERS VIEW ---
   if (view === "orders") {
-    return <OrdersView onLogout={onLogout} setPage={setPage} onBack={() => setView("list")} />;
+    return <OrdersView products={products} onLogout={onLogout} setPage={setPage} onBack={() => setView("list")} />;
   }
 
   // --- FORM VIEW ---

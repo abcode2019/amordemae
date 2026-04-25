@@ -1,7 +1,8 @@
 // Product image component — exibe imagem real ou placeholder emoji
 const ProductImage = ({ productId, src, index = 0, size = "full", className = "" }) => {
-  // Se tiver URL de imagem real, exibe a foto
-  if (src && typeof src === "string" && src.startsWith("http")) {
+  // Se tiver URL de imagem real ou caminho local
+  const isRealImage = src && typeof src === "string" && (src.startsWith("http") || src.startsWith("data:") || src.includes("/"));
+  if (isRealImage) {
     return (
       <div
         className={className}

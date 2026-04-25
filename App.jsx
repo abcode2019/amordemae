@@ -8,7 +8,7 @@ const App = () => {
     if (pathname === "/carrinho") return { page: "cart" };
     if (pathname === "/favoritos") return { page: "favorites" };
     if (pathname === "/admin/login") return { page: "landing", admin: "login" };
-    if (pathname === "/admin") return { page: "landing", admin: "panel" };
+    if (pathname.startsWith("/admin")) return { page: "landing", admin: "panel" };
     return { page: "landing" };
   };
 
@@ -162,13 +162,14 @@ const App = () => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync state → URL (pushState on navigation)
+  // Sync state → URL (pushState on navigation) — skip when admin is active
   React.useEffect(() => {
+    if (adminPage) return; // admin manages its own URL
     const path = pageToPath(page, selectedProduct);
     if (window.location.pathname !== path) {
       window.history.pushState({}, "", path);
     }
-  }, [page, selectedProduct]);
+  }, [page, selectedProduct, adminPage]);
 
   // Sync URL → state (browser back / forward)
   React.useEffect(() => {
@@ -312,7 +313,11 @@ const App = () => {
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
   const favCount = favorites.length;
 
-  const navigateTo = (p) => { setAdminPageState(null); setPageState(p); };
+  const navigateTo = (p) => {
+    setAdminPageState(null);
+    setPageState(p);
+    window.history.pushState({}, "", pageToPath(p));
+  };
 
   const sharedProps = {
     favorites, toggleFavorite, addToCart,

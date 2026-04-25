@@ -26,14 +26,17 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { data: order } = await db.from('pedidos').insert({
+      const { data: order, error: orderError } = await db.from('pedidos').insert({
         nome_cliente: custName.trim(),
         telefone_cliente: custPhone.trim() || null,
         total,
         status: 'pendente',
       }).select('id').single();
+
+      if (orderError) console.error('Erro ao criar pedido no Supabase:', orderError);
+
       if (order?.id) {
-        await db.from('itens_pedido').insert(cart.map(item => ({
+        const { error: itemsError } = await db.from('itens_pedido').insert(cart.map(item => ({
           pedido_id: order.id,
           produto_id: item.product.id,
           nome_produto: item.product.name,
@@ -45,8 +48,11 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
           personalizacao_data: item.personalization.date || null,
           personalizacao_msg: item.personalization.message || null,
         })));
+        if (itemsError) console.error('Erro ao salvar itens no Supabase:', itemsError);
       }
-    } catch (_) {}
+    } catch (err) {
+      console.error('Exceção ao finalizar:', err);
+    }
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${buildMsg()}`, '_blank');
     setSaving(false);
   };
