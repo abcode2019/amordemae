@@ -2,8 +2,12 @@
 const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
   const total = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+  const [showForm, setShowForm] = React.useState(false);
+  const [custName, setCustName] = React.useState('');
+  const [custPhone, setCustPhone] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
 
-  const handleWhatsApp = () => {
+  const buildMsg = () => {
     const lines = cart.map(item => {
       const p = item.product;
       const pers = [];
@@ -14,11 +18,38 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
       if (item.personalization.color) pers.push(`Cor: ${item.personalization.color}`);
       return `• *${p.name}* (x${item.qty}) — R$ ${(p.price * item.qty).toFixed(2).replace(".", ",")}\n  ${pers.join(" | ")}`;
     }).join("\n\n");
-
-    const msg = encodeURIComponent(
-      `Olá! Quero fazer um pedido:\n\n${lines}\n\n*Total: R$ ${total.toFixed(2).replace(".", ",")}*\n\nPode me ajudar a finalizar? 💖`
+    return encodeURIComponent(
+      `Olá! Meu nome é ${custName}.\n\nQuero fazer um pedido:\n\n${lines}\n\n*Total: R$ ${total.toFixed(2).replace(".", ",")}*\n\nPode me ajudar a finalizar? 💖`
     );
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
+  };
+
+  const handleFinalize = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data: order } = await db.from('orders').insert({
+        customer_name: custName.trim(),
+        customer_phone: custPhone.trim() || null,
+        total,
+        status: 'pending',
+      }).select('id').single();
+      if (order?.id) {
+        await db.from('order_items').insert(cart.map(item => ({
+          order_id: order.id,
+          product_id: item.product.id,
+          product_name: item.product.name,
+          unit_price: item.product.price,
+          qty: item.qty,
+          size: item.personalization.size || null,
+          color: item.personalization.color || null,
+          custom_name: item.personalization.name || null,
+          custom_date: item.personalization.date || null,
+          custom_message: item.personalization.message || null,
+        })));
+      }
+    } catch (_) {}
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${buildMsg()}`, '_blank');
+    setSaving(false);
   };
 
   if (cart.length === 0) {
@@ -156,21 +187,64 @@ const Cart = ({ cart, updateQty, removeFromCart, setPage }) => {
               </div>
             </div>
 
-            <button onClick={handleWhatsApp} style={{
-              width: "100%", padding: "16px", borderRadius: 14,
-              background: "#25D366", border: "none", color: "#fff",
-              fontSize: 16, fontWeight: 700, cursor: "pointer",
-              fontFamily: "Nunito, sans-serif",
-              boxShadow: "0 8px 24px rgba(37,211,102,0.35)",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              marginBottom: 12,
-            }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.85L.057 23.285a.75.75 0 0 0 .916.916l5.435-1.471A11.955 11.955 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.725 9.725 0 0 1-4.979-1.37l-.357-.213-3.704 1.003 1.003-3.704-.213-.357A9.725 9.725 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
-              </svg>
-              Finalizar no WhatsApp
-            </button>
+            {!showForm ? (
+              <button onClick={() => setShowForm(true)} style={{
+                width: "100%", padding: "16px", borderRadius: 14,
+                background: "#25D366", border: "none", color: "#fff",
+                fontSize: 16, fontWeight: 700, cursor: "pointer",
+                fontFamily: "Nunito, sans-serif",
+                boxShadow: "0 8px 24px rgba(37,211,102,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                marginBottom: 12,
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.85L.057 23.285a.75.75 0 0 0 .916.916l5.435-1.471A11.955 11.955 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.725 9.725 0 0 1-4.979-1.37l-.357-.213-3.704 1.003 1.003-3.704-.213-.357A9.725 9.725 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
+                </svg>
+                Finalizar no WhatsApp
+              </button>
+            ) : (
+              <form onSubmit={handleFinalize} style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+                <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#3D2B2B", fontFamily: "Nunito, sans-serif" }}>
+                  Antes de finalizar, me conta:
+                </p>
+                <input
+                  required
+                  placeholder="Seu nome *"
+                  value={custName}
+                  onChange={e => setCustName(e.target.value)}
+                  style={{
+                    padding: "12px 14px", borderRadius: 12, fontSize: 14,
+                    border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                    outline: "none", background: "#fdf9f9", color: "#3D2B2B",
+                  }}
+                />
+                <input
+                  placeholder="Telefone / WhatsApp (opcional)"
+                  value={custPhone}
+                  onChange={e => setCustPhone(e.target.value)}
+                  style={{
+                    padding: "12px 14px", borderRadius: 12, fontSize: 14,
+                    border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                    outline: "none", background: "#fdf9f9", color: "#3D2B2B",
+                  }}
+                />
+                <button type="submit" disabled={saving || !custName.trim()} style={{
+                  padding: "14px", borderRadius: 12, border: "none",
+                  background: saving || !custName.trim() ? "#e8dada" : "#25D366",
+                  color: saving || !custName.trim() ? "#B89090" : "#fff",
+                  fontSize: 15, fontWeight: 700, cursor: saving || !custName.trim() ? "not-allowed" : "pointer",
+                  fontFamily: "Nunito, sans-serif",
+                }}>
+                  {saving ? "Salvando pedido…" : "Confirmar e ir para o WhatsApp"}
+                </button>
+                <button type="button" onClick={() => setShowForm(false)} style={{
+                  padding: "10px", borderRadius: 12, border: "2px solid #f0e8e8",
+                  background: "none", color: "#9B7B7B", fontSize: 13,
+                  fontWeight: 700, cursor: "pointer", fontFamily: "Nunito, sans-serif",
+                }}>Cancelar</button>
+              </form>
+            )}
 
             <button onClick={() => setPage("catalog")} style={{
               width: "100%", padding: "12px", borderRadius: 14,

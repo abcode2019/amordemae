@@ -28,13 +28,8 @@ const App = () => {
   const [isAdmin, setIsAdmin] = React.useState(() => sessionStorage.getItem("amordemae_admin") === "true");
   const [adminPage, setAdminPage] = React.useState(null); // null | "login" | "panel"
 
-  // Products — starts with MOCK_PRODUCTS, extended via admin
-  const [products, setProducts] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("amordemae_products") || "null");
-      return saved || MOCK_PRODUCTS;
-    } catch { return MOCK_PRODUCTS; }
-  });
+  // Products — inicia com mock, substitui pelo Supabase no mount
+  const [products, setProducts] = React.useState(MOCK_PRODUCTS);
 
   // Cart state — persisted to localStorage
   const [cart, setCart] = React.useState(() => {
@@ -49,10 +44,32 @@ const App = () => {
   // Toast system
   const [toasts, setToasts] = React.useState([]);
 
-  // Persist products
+  // Carrega produtos do Supabase
   React.useEffect(() => {
-    localStorage.setItem("amordemae_products", JSON.stringify(products));
-  }, [products]);
+    db.from('products').select('*').order('id').then(({ data, error }) => {
+      if (!error && data && data.length > 0) {
+        setProducts(data.map(row => ({
+          id: row.id,
+          name: row.name,
+          price: Number(row.price),
+          originalPrice: row.original_price != null ? Number(row.original_price) : null,
+          category: row.category,
+          description: row.description,
+          shortDescription: row.short_description,
+          sizes: row.sizes || [],
+          colors: row.colors || [],
+          images: row.images || [],
+          badge: row.badge,
+          rating: Number(row.rating),
+          reviews: row.reviews,
+          tags: row.tags || [],
+          personalizationFields: row.personalization_fields || [],
+          featured: row.featured,
+          inStock: row.in_stock,
+        })));
+      }
+    });
+  }, []);
 
   // Persist cart
   React.useEffect(() => {
