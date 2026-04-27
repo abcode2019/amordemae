@@ -42,6 +42,20 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
     }
   };
 
+  const handleShare = () => {
+    const url = window.location.href;
+    const priceStr = `R$ ${sizePrice.price.toFixed(2).replace(".", ",")}`;
+    const lines = [
+      `💖 *${product.name}*`,
+      product.shortDescription ? product.shortDescription : null,
+      ``,
+      `💰 ${priceStr}`,
+      ``,
+      `🔗 ${url}`,
+    ].filter(l => l !== null).join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+  };
+
   const btnBase = {
     padding: "15px 24px", borderRadius: 14, fontSize: 15, fontWeight: 700,
     cursor: "pointer", fontFamily: "Nunito, sans-serif", transition: "all 0.2s",
@@ -343,6 +357,19 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
                   <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.118 1.528 5.85L.057 23.285a.75.75 0 0 0 .916.916l5.435-1.471A11.955 11.955 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.725 9.725 0 0 1-4.979-1.37l-.357-.213-3.704 1.003 1.003-3.704-.213-.357A9.725 9.725 0 0 1 2.25 12C2.25 6.615 6.615 2.25 12 2.25S21.75 6.615 21.75 12 17.385 21.75 12 21.75z"/>
                 </svg>
                 Comprar via WhatsApp
+              </button>
+              <button onClick={handleShare} style={{
+                ...btnBase,
+                background: "#fff",
+                border: "2px solid #f0e8e8",
+                color: "#9B7B7B",
+                fontSize: 14,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                Compartilhar no WhatsApp
               </button>
             </div>
 

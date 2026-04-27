@@ -3,43 +3,43 @@ const Landing = ({ setPage, setSelectedProduct, products, favorites, toggleFavor
   const featured = products.filter((p) => p.featured).slice(0, 4);
 
   const ValueCard = ({ icon, title, desc }) =>
-  <div style={{
-    background: "#fff", borderRadius: 20, padding: 28,
-    boxShadow: "0 4px 24px rgba(210,155,155,0.1)",
-    display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12,
-    border: "1px solid #f8f0f0"
-  }}>
+    <div style={{
+      background: "#fff", borderRadius: 20, padding: 28,
+      boxShadow: "0 4px 24px rgba(210,155,155,0.1)",
+      display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12,
+      border: "1px solid #f8f0f0"
+    }}>
       <div style={{
-      width: 60, height: 60, borderRadius: 18,
-      background: "linear-gradient(135deg, #fdf0f0, #f8eae8)",
-      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28
-    }}>{icon}</div>
+        width: 60, height: 60, borderRadius: 18,
+        background: "linear-gradient(135deg, #fdf0f0, #f8eae8)",
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28
+      }}>{icon}</div>
       <h3 style={{ margin: 0, fontSize: 17, color: "#3D2B2B", fontFamily: "Playfair Display, serif" }}>{title}</h3>
       <p style={{ margin: 0, fontSize: 14, color: "#9B7B7B", lineHeight: 1.6 }}>{desc}</p>
     </div>;
 
 
   const TestimonialCard = ({ t }) =>
-  <div style={{
-    background: "#fff", borderRadius: 20, padding: 24,
-    boxShadow: "0 4px 20px rgba(210,155,155,0.1)",
-    border: "1px solid #f8f0f0", minWidth: 280, maxWidth: 320
-  }}>
+    <div style={{
+      background: "#fff", borderRadius: 20, padding: 24,
+      boxShadow: "0 4px 20px rgba(210,155,155,0.1)",
+      border: "1px solid #f8f0f0", minWidth: 280, maxWidth: 320
+    }}>
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {[...Array(t.rating)].map((_, i) =>
-      <span key={i} style={{ color: "#C2877E", fontSize: 14 }}>★</span>
-      )}
+          <span key={i} style={{ color: "#C2877E", fontSize: 14 }}>★</span>
+        )}
       </div>
       <p style={{ margin: "0 0 16px", fontSize: 14, color: "#5A3F3F", lineHeight: 1.7, fontStyle: "italic" }}>
         "{t.text}"
       </p>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{
-        width: 40, height: 40, borderRadius: "50%",
-        background: "linear-gradient(135deg, #D29B9B, #C2877E)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: "#fff", fontSize: 14, fontWeight: 700
-      }}>{t.avatar}</div>
+          width: 40, height: 40, borderRadius: "50%",
+          background: "linear-gradient(135deg, #D29B9B, #C2877E)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontSize: 14, fontWeight: 700
+        }}>{t.avatar}</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#3D2B2B" }}>{t.name}</div>
           <div style={{ fontSize: 12, color: "#B89090" }}>{t.location}</div>
@@ -98,8 +98,8 @@ const Landing = ({ setPage, setSelectedProduct, products, favorites, toggleFavor
                   boxShadow: "0 8px 24px rgba(194,135,126,0.4)",
                   transition: "transform 0.2s, box-shadow 0.2s"
                 }}
-                onMouseEnter={(e) => {e.target.style.transform = "translateY(-2px)";e.target.style.boxShadow = "0 12px 32px rgba(194,135,126,0.5)";}}
-                onMouseLeave={(e) => {e.target.style.transform = "none";e.target.style.boxShadow = "0 8px 24px rgba(194,135,126,0.4)";}}>
+                  onMouseEnter={(e) => { e.target.style.transform = "translateY(-2px)"; e.target.style.boxShadow = "0 12px 32px rgba(194,135,126,0.5)"; }}
+                  onMouseLeave={(e) => { e.target.style.transform = "none"; e.target.style.boxShadow = "0 8px 24px rgba(194,135,126,0.4)"; }}>
                   Ver catálogo</button>
                 <button onClick={() => setPage("catalog")} style={{
                   background: "#fff", border: "2px solid #f0e8e8", cursor: "pointer",
@@ -107,13 +107,13 @@ const Landing = ({ setPage, setSelectedProduct, products, favorites, toggleFavor
                   fontSize: 16, fontWeight: 700, fontFamily: "Nunito, sans-serif",
                   transition: "all 0.2s"
                 }}
-                onMouseEnter={(e) => {e.target.style.borderColor = "#D29B9B";e.target.style.background = "#fdf8f8";}}
-                onMouseLeave={(e) => {e.target.style.borderColor = "#f0e8e8";e.target.style.background = "#fff";}}>
+                  onMouseEnter={(e) => { e.target.style.borderColor = "#D29B9B"; e.target.style.background = "#fdf8f8"; }}
+                  onMouseLeave={(e) => { e.target.style.borderColor = "#f0e8e8"; e.target.style.background = "#fff"; }}>
                   ✨ Criar meu personalizado</button>
               </div>
               <div style={{ display: "flex", gap: 28, marginTop: 40, flexWrap: "wrap" }}>
-                {[["500+", "Peças entregues"], ["4.9★", "Avaliação média"], ["100%", "Feito com amor"]].map(([n, l]) =>
-                <div key={l}>
+                {[["50+", "Peças entregues"], ["4.9★", "Avaliação média"], ["100%", "Feito com amor"]].map(([n, l]) =>
+                  <div key={l}>
                     <div style={{ fontSize: 22, fontWeight: 800, color: "#D29B9B", fontFamily: "Playfair Display, serif" }}>{n}</div>
                     <div style={{ fontSize: 12, color: "#9B7B7B", fontWeight: 600 }}>{l}</div>
                   </div>
@@ -145,16 +145,16 @@ const Landing = ({ setPage, setSelectedProduct, products, favorites, toggleFavor
                 </div>
                 {/* Floating badges */}
                 {[
-                { top: 20, right: 20, text: "💖 Mais de 500 famílias" },
-                { bottom: 20, left: 20, text: "✨ Peça única" }].
-                map((b, i) =>
-                <div key={i} style={{
-                  position: "absolute", top: b.top, right: b.right, bottom: b.bottom, left: b.left,
-                  background: "#fff", borderRadius: 12, padding: "8px 14px",
-                  fontSize: 12, fontWeight: 700, color: "#3D2B2B",
-                  boxShadow: "0 4px 16px rgba(61,43,43,0.12)"
-                }}>{b.text}</div>
-                )}
+                  { top: 20, right: 20, text: "💖 Mais de 500 famílias" },
+                  { bottom: 20, left: 20, text: "✨ Peça única" }].
+                  map((b, i) =>
+                    <div key={i} style={{
+                      position: "absolute", top: b.top, right: b.right, bottom: b.bottom, left: b.left,
+                      background: "#fff", borderRadius: 12, padding: "8px 14px",
+                      fontSize: 12, fontWeight: 700, color: "#3D2B2B",
+                      boxShadow: "0 4px 16px rgba(61,43,43,0.12)"
+                    }}>{b.text}</div>
+                  )}
               </div>
             </div>
           </div>
@@ -197,7 +197,7 @@ const Landing = ({ setPage, setSelectedProduct, products, favorites, toggleFavor
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }} className="products-grid">
             {featured.map((p) =>
-            <ProductCard key={p.id} product={p} favorites={favorites} toggleFavorite={toggleFavorite} addToCart={addToCart} setPage={setPage} setSelectedProduct={setSelectedProduct} />
+              <ProductCard key={p.id} product={p} favorites={favorites} toggleFavorite={toggleFavorite} addToCart={addToCart} setPage={setPage} setSelectedProduct={setSelectedProduct} />
             )}
           </div>
         </div>

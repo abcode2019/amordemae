@@ -437,9 +437,27 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
     return () => window.removeEventListener("popstate", handler);
   }, [products]);
   const [uploading, setUploading] = React.useState(false);
-  const [newFiles, setNewFiles] = React.useState([]); // File objects to upload
-  const [previewUrls, setPreviewUrls] = React.useState([]); // preview URLs for new files
+  const [newFiles, setNewFiles] = React.useState([]);
+  const [previewUrls, setPreviewUrls] = React.useState([]);
   const fileInputRef = React.useRef(null);
+
+  // Price calculator modal
+  const [showPriceCalc, setShowPriceCalc] = React.useState(false);
+  const [calcKgPrice, setCalcKgPrice] = React.useState('');
+  const [calcGrams, setCalcGrams]     = React.useState('');
+  const [calcOverhead, setCalcOverhead]     = React.useState(15);
+  const [calcMultiplier, setCalcMultiplier] = React.useState(3);
+  const [calcTargetIdx, setCalcTargetIdx]   = React.useState(0);
+
+  const calcMaterial  = calcKgPrice && calcGrams ? (Number(calcKgPrice) / 1000) * Number(calcGrams) : 0;
+  const calcTotalCost = calcMaterial * (1 + Number(calcOverhead) / 100);
+  const calcSuggested = calcTotalCost * Number(calcMultiplier);
+  const calcReady     = calcMaterial > 0;
+
+  const applyCalcPrice = () => {
+    updateSizePrice(calcTargetIdx, "price", calcSuggested.toFixed(2));
+    setShowPriceCalc(false);
+  };
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -676,6 +694,7 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
   // --- FORM VIEW ---
   if (view === "new" || view === "edit") {
     return (
+      <>
       <div style={{ minHeight: "100vh", background: "#f5f0f0", padding: "0 0 60px" }}>
         {/* Admin Topbar */}
         <AdminTopbar onLogout={onLogout} setPage={setPage} />
@@ -825,7 +844,20 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
 
               {/* Tamanhos e Preços */}
               <div style={{ background: "#fff", borderRadius: 20, padding: 28, marginBottom: 20, boxShadow: "0 2px 12px rgba(210,155,155,0.08)" }}>
-                {sectionTitle("Tamanhos e Preços", "Defina o preço para cada tamanho disponível")}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 12, borderBottom: "2px solid #f0e8e8" }}>
+                  <div>
+                    <h3 style={{ fontFamily: "Playfair Display, serif", fontSize: 18, color: "#3D2B2B", margin: 0 }}>Tamanhos e Preços</h3>
+                    <p style={{ fontSize: 13, color: "#9B7B7B", margin: "4px 0 0" }}>Defina o preço para cada tamanho disponível</p>
+                  </div>
+                  <button onClick={() => { setCalcTargetIdx(0); setShowPriceCalc(true); }} style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "8px 14px", borderRadius: 10, border: "2px solid #f0e8e8",
+                    background: "#fdf9f9", color: "#8B6B4A", fontSize: 13, fontWeight: 700,
+                    cursor: "pointer", fontFamily: "Nunito, sans-serif", flexShrink: 0,
+                  }}>
+                    🧮 Calcular preço
+                  </button>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "12px 2fr 1fr 1fr 36px", gap: 8, alignItems: "center", marginBottom: 6 }}>
                   <span />
                   <span style={{ ...labelStyle, marginBottom: 0 }}>Tamanho *</span>
@@ -1025,6 +1057,209 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
         <style>{`@keyframes shake { 0%,100%{transform:none} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
         @media(max-width:768px){.admin-form-grid{grid-template-columns:1fr!important;}}`}</style>
       </div>
+
+      {/* ===== Price Calculator Modal ===== */}
+      {showPriceCalc && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 24,
+        }} onClick={() => setShowPriceCalc(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#fff", borderRadius: 24, padding: 32, maxWidth: 480, width: "100%",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.2)", animation: "fadeIn 0.2s ease",
+          }}>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 32, marginBottom: 6 }}>🧮</div>
+              <h2 style={{ fontFamily: "Playfair Display, serif", fontSize: 22, color: "#3D2B2B", margin: "0 0 4px" }}>
+                Calculadora de Preço
+              </h2>
+              <p style={{ color: "#9B7B7B", fontSize: 13, margin: 0 }}>
+                Informe os dados do filamento para sugerir o preço de venda
+              </p>
+            </div>
+
+            {/* Inputs */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 5 }}>
+                    Preço do filamento <span style={{ color: "#9B7B7B", fontWeight: 400 }}>(R$/kg)</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#9B7B7B", fontWeight: 700 }}>R$</span>
+                    <input
+                      type="number" step="0.01" min="0"
+                      placeholder="100,00"
+                      value={calcKgPrice}
+                      onChange={e => setCalcKgPrice(e.target.value)}
+                      style={{
+                        width: "100%", padding: "11px 12px 11px 34px", borderRadius: 12, fontSize: 14,
+                        border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                        outline: "none", boxSizing: "border-box", color: "#3D2B2B",
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                      onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                    />
+                  </div>
+                  <span style={{ fontSize: 11, color: "#B89090", marginTop: 3, display: "block" }}>custo por quilo</span>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 5 }}>
+                    Peso da peça <span style={{ color: "#9B7B7B", fontWeight: 400 }}>(gramas)</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="number" step="1" min="0"
+                      placeholder="100"
+                      value={calcGrams}
+                      onChange={e => setCalcGrams(e.target.value)}
+                      style={{
+                        width: "100%", padding: "11px 36px 11px 12px", borderRadius: 12, fontSize: 14,
+                        border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                        outline: "none", boxSizing: "border-box", color: "#3D2B2B",
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                      onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                    />
+                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#9B7B7B", fontWeight: 700 }}>g</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#B89090", marginTop: 3, display: "block" }}>quantidade de filamento</span>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 5 }}>
+                    Custo operacional <span style={{ color: "#9B7B7B", fontWeight: 400 }}>(% sobre material)</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="number" step="1" min="0" max="200"
+                      value={calcOverhead}
+                      onChange={e => setCalcOverhead(e.target.value)}
+                      style={{
+                        width: "100%", padding: "11px 36px 11px 12px", borderRadius: 12, fontSize: 14,
+                        border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                        outline: "none", boxSizing: "border-box", color: "#3D2B2B",
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                      onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                    />
+                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#9B7B7B", fontWeight: 700 }}>%</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#B89090", marginTop: 3, display: "block" }}>energia, desgaste, tempo</span>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 5 }}>
+                    Fator de lucro <span style={{ color: "#9B7B7B", fontWeight: 400 }}>(multiplicador)</span>
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="number" step="0.1" min="1"
+                      value={calcMultiplier}
+                      onChange={e => setCalcMultiplier(e.target.value)}
+                      style={{
+                        width: "100%", padding: "11px 28px 11px 12px", borderRadius: 12, fontSize: 14,
+                        border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                        outline: "none", boxSizing: "border-box", color: "#3D2B2B",
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                      onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                    />
+                    <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#9B7B7B", fontWeight: 700 }}>×</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#B89090", marginTop: 3, display: "block" }}>3× = preço é 3x o custo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Breakdown */}
+            <div style={{
+              background: "#fdf9f9", border: "1px solid #f0e8e8", borderRadius: 16,
+              padding: 18, marginBottom: 20,
+            }}>
+              {!calcReady ? (
+                <p style={{ color: "#B89090", fontSize: 13, margin: 0, textAlign: "center" }}>
+                  Preencha o preço do kg e o peso da peça para ver o cálculo
+                </p>
+              ) : (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#7A5A5A", marginBottom: 8 }}>
+                    <span>Custo do material ({calcGrams}g)</span>
+                    <span style={{ fontWeight: 700 }}>R$ {calcMaterial.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#7A5A5A", marginBottom: 8 }}>
+                    <span>Custo operacional ({calcOverhead}%)</span>
+                    <span style={{ fontWeight: 700 }}>R$ {(calcMaterial * calcOverhead / 100).toFixed(2).replace(".", ",")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#7A5A5A", paddingTop: 8, borderTop: "1px dashed #f0e8e8", marginBottom: 12 }}>
+                    <span>Custo total</span>
+                    <span style={{ fontWeight: 700 }}>R$ {calcTotalCost.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                  <div style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    background: "linear-gradient(135deg, #fdf0f0, #f8f0f0)",
+                    borderRadius: 12, padding: "12px 16px",
+                    border: "2px solid #D29B9B",
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#3D2B2B" }}>
+                      💰 Preço sugerido ({calcMultiplier}×)
+                    </span>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: "#C2877E", fontFamily: "Nunito, sans-serif" }}>
+                      R$ {calcSuggested.toFixed(2).replace(".", ",")}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Apply to which size */}
+            {calcReady && form.sizePrices.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#3D2B2B", display: "block", marginBottom: 6 }}>
+                  Aplicar preço ao tamanho:
+                </label>
+                <select
+                  value={calcTargetIdx}
+                  onChange={e => setCalcTargetIdx(Number(e.target.value))}
+                  style={{
+                    width: "100%", padding: "11px 14px", borderRadius: 12, fontSize: 14,
+                    border: "2px solid #f0e8e8", fontFamily: "Nunito, sans-serif",
+                    outline: "none", background: "#fdf9f9", color: "#3D2B2B",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {form.sizePrices.map((sp, i) => (
+                    <option key={i} value={i}>
+                      {sp.size ? sp.size : `Tamanho ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setShowPriceCalc(false)} style={{
+                flex: 1, padding: "13px", borderRadius: 12, border: "2px solid #f0e8e8",
+                background: "#fff", color: "#9B7B7B", fontSize: 14, fontWeight: 700,
+                cursor: "pointer", fontFamily: "Nunito, sans-serif",
+              }}>Cancelar</button>
+              <button onClick={applyCalcPrice} disabled={!calcReady} style={{
+                flex: 2, padding: "13px", borderRadius: 12, border: "none",
+                background: calcReady ? "linear-gradient(135deg, #D29B9B, #C2877E)" : "#e8dada",
+                color: calcReady ? "#fff" : "#B89090", fontSize: 14, fontWeight: 700,
+                cursor: calcReady ? "pointer" : "not-allowed", fontFamily: "Nunito, sans-serif",
+                boxShadow: calcReady ? "0 6px 16px rgba(194,135,126,0.35)" : "none",
+              }}>
+                ✅ Aplicar R$ {calcReady ? calcSuggested.toFixed(2).replace(".", ",") : "—"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 

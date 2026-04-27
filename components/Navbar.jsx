@@ -70,6 +70,36 @@ const Navbar = ({ page, setPage, cartCount, favCount, onLogoClick, isAdmin, onAd
             }}>🔐</button>
           )}
 
+          {/* Instagram */}
+          <a
+            href="https://www.instagram.com/amordemae3d/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Instagram @amordemae3d"
+            style={{
+              width: 44, height: 44, borderRadius: 12,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s", textDecoration: "none", flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "#fdf0f0"}
+            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#ig-grad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <defs>
+                <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#f09433"/>
+                  <stop offset="25%" stopColor="#e6683c"/>
+                  <stop offset="50%" stopColor="#dc2743"/>
+                  <stop offset="75%" stopColor="#cc2366"/>
+                  <stop offset="100%" stopColor="#bc1888"/>
+                </linearGradient>
+              </defs>
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+              <circle cx="12" cy="12" r="4.5"/>
+              <circle cx="17.5" cy="6.5" r="1" fill="url(#ig-grad)" stroke="none"/>
+            </svg>
+          </a>
+
           {/* Favorites */}
           <button onClick={() => setPage("favorites")} style={{
             background: page === "favorites" ? "#fdf0f0" : "none",
@@ -153,6 +183,24 @@ const Navbar = ({ page, setPage, cartCount, favCount, onLogoClick, isAdmin, onAd
               padding: "14px 16px", borderRadius: 12, textAlign: "left",
             }}>{l.label}</button>
           ))}
+          <a
+            href="https://www.instagram.com/amordemae3d/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "14px 16px", borderRadius: 12, textDecoration: "none",
+              fontSize: 15, fontWeight: 700, color: "#cc2366",
+              fontFamily: "Nunito, sans-serif",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+              <circle cx="12" cy="12" r="4.5"/>
+              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+            @amordemae3d
+          </a>
           <button onClick={() => { setPage("catalog"); setMenuOpen(false); }} style={{
             background: "linear-gradient(135deg, #D29B9B, #C2877E)",
             border: "none", cursor: "pointer", padding: "14px 16px",
