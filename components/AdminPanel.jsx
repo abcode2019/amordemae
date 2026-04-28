@@ -563,9 +563,14 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const path = `imagens/${fileName}`;
 
-      const { error } = await db.storage.from('produtos').upload(path, file, {
+      // Converter o arquivo para ArrayBuffer e passar o contentType
+      // Isso previne que navegadores de celular enviem arquivos com 0 bytes
+      const arrayBuffer = await file.arrayBuffer();
+
+      const { error } = await db.storage.from('produtos').upload(path, arrayBuffer, {
         cacheControl: '3600',
         upsert: false,
+        contentType: file.type
       });
 
       if (!error) {

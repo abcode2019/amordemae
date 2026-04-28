@@ -22,6 +22,50 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
   const [wpName, setWpName] = React.useState('');
   const [wpPhone, setWpPhone] = React.useState('');
 
+  // Comments state
+  const [comments, setComments] = React.useState([]);
+  const [commentsLoading, setCommentsLoading] = React.useState(true);
+  const [newCommentName, setNewCommentName] = React.useState('');
+  const [newCommentText, setNewCommentText] = React.useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
+
+  React.useEffect(() => {
+    setCommentsLoading(true);
+    if (window.db) {
+      window.db.from('comentarios_produto')
+        .select('*')
+        .eq('produto_id', product.id)
+        .order('criado_em', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setComments(data);
+          setCommentsLoading(false);
+        });
+    } else {
+      setCommentsLoading(false);
+    }
+  }, [product.id]);
+
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    if (!newCommentName.trim() || !newCommentText.trim() || !window.db) return;
+    setIsSubmittingComment(true);
+    const newComment = {
+      produto_id: product.id,
+      nome: newCommentName.trim(),
+      comentario: newCommentText.trim()
+    };
+    const { data, error } = await window.db.from('comentarios_produto').insert([newComment]).select().single();
+    if (!error && data) {
+      setComments([data, ...comments]);
+      setNewCommentName('');
+      setNewCommentText('');
+      showToast && showToast('Comentário enviado!');
+    } else {
+      console.error('Erro ao enviar comentário:', error);
+    }
+    setIsSubmittingComment(false);
+  };
+
   const unitPrice = sizePrice.price;
   const totalPrice = unitPrice * qty;
 
@@ -380,6 +424,69 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
                   <span>{ic}</span><span>{lb}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Avaliações / Comentários */}
+            <div style={{ marginTop: 40, paddingTop: 24, borderTop: "2px solid #f0e8e8" }}>
+              <h3 style={{ fontFamily: "Playfair Display, serif", fontSize: 20, color: "#3D2B2B", marginBottom: 16 }}>
+                Comentários
+              </h3>
+              
+              {/* Formulário de novo comentário */}
+              <form onSubmit={handleSubmitComment} style={{ marginBottom: 24, background: "#fff", padding: 20, borderRadius: 16, border: "1px solid #f0e8e8", boxShadow: "0 2px 12px rgba(210,155,155,0.05)" }}>
+                <div style={{ marginBottom: 12 }}>
+                  <input 
+                    placeholder="Seu nome" 
+                    value={newCommentName}
+                    onChange={e => setNewCommentName(e.target.value)}
+                    required
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "2px solid #f0e8e8", fontSize: 14, fontFamily: "Nunito, sans-serif", boxSizing: "border-box", outline: "none", transition: "border-color 0.2s" }}
+                    onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                    onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <textarea 
+                    placeholder="Deixe seu comentário sobre o produto..." 
+                    value={newCommentText}
+                    onChange={e => setNewCommentText(e.target.value)}
+                    required
+                    rows={3}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "2px solid #f0e8e8", fontSize: 14, fontFamily: "Nunito, sans-serif", boxSizing: "border-box", outline: "none", resize: "vertical", transition: "border-color 0.2s" }}
+                    onFocus={e => e.target.style.borderColor = '#D29B9B'}
+                    onBlur={e => e.target.style.borderColor = '#f0e8e8'}
+                  />
+                </div>
+                <button type="submit" disabled={isSubmittingComment} style={{
+                  padding: "10px 20px", borderRadius: 10, border: "none",
+                  background: isSubmittingComment ? "#ccc" : "#D29B9B", color: "#fff",
+                  fontSize: 14, fontWeight: 700, cursor: isSubmittingComment ? "not-allowed" : "pointer",
+                  fontFamily: "Nunito, sans-serif", transition: "background 0.2s"
+                }}>
+                  {isSubmittingComment ? "Enviando..." : "Enviar Comentário"}
+                </button>
+              </form>
+
+              {/* Lista de comentários */}
+              {commentsLoading ? (
+                <div style={{ color: "#9B7B7B", fontSize: 14 }}>Carregando comentários...</div>
+              ) : comments.length === 0 ? (
+                <div style={{ color: "#9B7B7B", fontSize: 14 }}>Nenhum comentário ainda. Seja o primeiro a comentar!</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {comments.map(c => (
+                    <div key={c.id} style={{ background: "#fff", padding: 16, borderRadius: 16, border: "1px solid #f0e8e8" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, color: "#3D2B2B", fontSize: 14 }}>{c.nome}</span>
+                        <span style={{ color: "#B89090", fontSize: 12 }}>{new Date(c.criado_em).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <p style={{ margin: 0, color: "#7A5A5A", fontSize: 14, lineHeight: 1.5 }}>
+                        {c.comentario}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
