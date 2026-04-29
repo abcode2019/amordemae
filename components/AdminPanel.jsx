@@ -1466,12 +1466,14 @@ const AdminPanel = ({ products, onAddProduct, onEditProduct, onDeleteProduct, on
       <style>{`
         @media(max-width:900px){
           .admin-stats-grid{grid-template-columns:repeat(2,1fr)!important;}
-          .admin-table-header,.admin-table-row{grid-template-columns:1fr 1fr 100px 100px!important;}
-          .admin-table-header span:nth-child(5),.admin-table-header span:nth-child(6),
-          .admin-table-row>div:nth-child(5),.admin-table-row>div:nth-child(6){display:none!important;}
+          .admin-table-header,.admin-table-row{grid-template-columns:1.5fr 1fr 100px 90px!important;}
+          .admin-table-header span:nth-child(2),.admin-table-header span:nth-child(5),
+          .admin-table-row>span:nth-child(2),.admin-table-row>div:nth-child(5){display:none!important;}
         }
         @media(max-width:560px){
           .admin-stats-grid{grid-template-columns:1fr 1fr!important;}
+          .admin-table-header,.admin-table-row{grid-template-columns:1fr 80px 90px!important; gap: 8px!important; padding: 12px 10px!important;}
+          .admin-table-header span:nth-child(4),.admin-table-row>div:nth-child(4){display:none!important;}
         }
       `}</style>
     </div>
