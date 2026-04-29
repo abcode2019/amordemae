@@ -31,8 +31,8 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
 
   React.useEffect(() => {
     setCommentsLoading(true);
-    if (window.db) {
-      window.db.from('comentarios_produto')
+    if (typeof db !== 'undefined') {
+      db.from('comentarios_produto')
         .select('*')
         .eq('produto_id', product.id)
         .order('criado_em', { ascending: false })
@@ -47,14 +47,14 @@ const ProductDetail = ({ product, favorites, toggleFavorite, addToCart, setPage,
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-    if (!newCommentName.trim() || !newCommentText.trim() || !window.db) return;
+    if (!newCommentName.trim() || !newCommentText.trim() || typeof db === 'undefined') return;
     setIsSubmittingComment(true);
     const newComment = {
       produto_id: product.id,
       nome: newCommentName.trim(),
       comentario: newCommentText.trim()
     };
-    const { data, error } = await window.db.from('comentarios_produto').insert([newComment]).select().single();
+    const { data, error } = await db.from('comentarios_produto').insert([newComment]).select().single();
     if (!error && data) {
       setComments([data, ...comments]);
       setNewCommentName('');
